@@ -1,8 +1,5 @@
 // VisualCSS Service Worker
-// Scope: /EDITOR-VISUAL/ (mismo directorio que el editor en GitHub Pages)
-// Sirve archivos del proyecto desde memoria
-
-const FILES = new Map(); // path → {content, mime}
+const FILES = new Map();
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
@@ -17,70 +14,73 @@ self.addEventListener('message', e => {
   if (d.type === 'UPDATE_FILE') FILES.set(d.path, { content: d.content, mime: d.mime });
   if (d.type === 'CLEAR') FILES.clear();
   if (d.type === 'PING') e.source?.postMessage({ type: 'PONG' });
+  // Debug: devolver lista de keys
+  if (d.type === 'LIST_FILES') {
+    e.source?.postMessage({ type: 'FILE_LIST', total: FILES.size, keys: [...FILES.keys()].slice(0, 30) });
+  }
 });
 
 self.addEventListener('fetch', e => {
-  if (FILES.size === 0) return;
+  // Siempre responder si tenemos el archivo — nunca dejar pasar a GitHub Pages
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin) return; // ignorar CDNs, Firebase, etc.
 
-  // Extraer path relativo al scope del SW
-  // scope = "https://user.github.io/EDITOR-VISUAL/"
-  // url   = "https://user.github.io/EDITOR-VISUAL/visualcss/blackjack/index.html"
-  // → path = "visualcss/blackjack/index.html"
+  // Ignorar peticiones a otros orígenes (Firebase, Google Fonts, CDNs)
+  if (url.origin !== self.location.origin) return;
+
   const scope = self.registration.scope;
   const scopePath = new URL(scope).pathname; // "/EDITOR-VISUAL/"
-  const reqPathFull = url.pathname; // "/EDITOR-VISUAL/visualcss/blackjack/index.html"
 
-  if (!reqPathFull.startsWith(scopePath)) return;
+  // Solo interceptar URLs bajo nuestro scope
+  if (!url.pathname.startsWith(scopePath)) return;
 
-  const reqPath = normPath(reqPathFull.slice(scopePath.length));
+  // Extraer path relativo al scope, sin query string
+  const reqPath = normPath(url.pathname.slice(scopePath.length)).split('?')[0];
 
-  // Solo responder si tenemos este archivo
+  // No interceptar la raíz del editor (index.html, sw.js)
+  if (!reqPath || reqPath === 'index.html' || reqPath === 'sw.js') return;
+
+  // Buscar en FILES — si no está, responder 404 nosotros (no GitHub Pages)
   const entry = findFile(reqPath);
-  if (!entry) return; // dejar al navegador si no lo tenemos
 
-  e.respondWith(new Response(entry.content, {
-    status: 200,
-    headers: {
-      'Content-Type': entry.mime || 'application/octet-stream',
-      'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*',
-    }
-  }));
+  e.respondWith(entry
+    ? new Response(entry.content, {
+        status: 200,
+        headers: {
+          'Content-Type': entry.mime || 'application/octet-stream',
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
+        }
+      })
+    : new Response(
+        `SW 404: "${reqPath}"\nFiles loaded: ${FILES.size}\nSample keys:\n` +
+        [...FILES.keys()].slice(0,10).join('\n'),
+        { status: 404, headers: { 'Content-Type': 'text/plain' } }
+      )
+  );
 });
 
 function findFile(reqPath) {
   // 1. Match exacto
   if (FILES.has(reqPath)) return FILES.get(reqPath);
 
-  // 2. reqPath puede tener query string residual — limpiar
+  // 2. Limpiar query string
   const clean = reqPath.split('?')[0];
-  if (clean !== reqPath && FILES.has(clean)) return FILES.get(clean);
+  if (FILES.has(clean)) return FILES.get(clean);
 
-  // 3. Buscar por sufijo: req="visualcss/js/shared.js", key="visualcss/js/shared.js" ✓
-  //    Pero también: req="EDITOR-VISUAL/js/shared.js" cuando el navegador resuelve ../../
-  //    En ese caso el path ya fue recortado al scope, así que debería cuadrar
-  for (const [k, v] of FILES) {
-    if (k === clean) return v;
-  }
+  // 3. El iframe está bajo visualcss/X/ y pide ../../Y/Z
+  //    El navegador resuelve las .. antes de hacer la petición
+  //    Resultado: req="js/shared.js" pero key="visualcss/js/shared.js"
+  //    → intentar con prefijo visualcss/
+  const prefixed = 'visualcss/' + clean;
+  if (FILES.has(prefixed)) return FILES.get(prefixed);
 
-  // 4. El iframe puede pedir rutas que suben niveles resueltas por el navegador
-  //    ej: iframe está en visualcss/blackjack/ y pide ../../js/shared.js
-  //    el navegador resuelve a /EDITOR-VISUAL/js/shared.js → reqPath = "js/shared.js"
-  //    en FILES está como "visualcss/js/shared.js"
-  //    → intentar con prefijo "visualcss/"
-  const withPrefix = 'visualcss/' + clean;
-  if (FILES.has(withPrefix)) return FILES.get(withPrefix);
-
-  // 5. Buscar por nombre de archivo con mejor coincidencia de sufijo
+  // 4. Buscar por mejor coincidencia de sufijo
   const filename = clean.split('/').pop();
   if (!filename) return null;
 
   let best = null, bestScore = -1;
   for (const [k, v] of FILES) {
-    const kFile = k.split('/').pop();
-    if (kFile !== filename) continue;
+    if (!k.endsWith('/' + filename) && k !== filename) continue;
     const score = suffixScore(clean, k);
     if (score > bestScore) { bestScore = score; best = v; }
   }
@@ -88,19 +88,16 @@ function findFile(reqPath) {
 }
 
 function normPath(p) {
-  if (!p) return '';
-  const parts = p.split('/');
-  const out = [];
-  for (const seg of parts) {
-    if (seg === '..') { if (out.length) out.pop(); }
-    else if (seg && seg !== '.') out.push(seg);
+  const parts = (p || '').split('/'), out = [];
+  for (const s of parts) {
+    if (s === '..') { if (out.length) out.pop(); }
+    else if (s && s !== '.') out.push(s);
   }
   return out.join('/');
 }
 
 function suffixScore(req, key) {
-  const rp = req.split('/').reverse();
-  const kp = key.split('/').reverse();
+  const rp = req.split('/').reverse(), kp = key.split('/').reverse();
   let n = 0;
   while (n < rp.length && n < kp.length && rp[n] === kp[n]) n++;
   return n;

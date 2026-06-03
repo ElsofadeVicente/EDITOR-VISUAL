@@ -182,7 +182,7 @@ select.pi{cursor:pointer}
     <div id="stat"><div id="sdot"></div><span id="stxt">abre una carpeta para empezar</span></div>
   </div>
 
-  <div id="sw-bar"><span id="sw-dot2"></span><span id="sw-txt2"></span></div>
+  <div id="sw-bar"><span id="sw-dot2"></span><span id="sw-txt2"></span><button onclick="swDebug()" style="margin-left:8px;padding:1px 8px;font-size:10px;border:1px solid rgba(99,102,241,.4);border-radius:4px;background:transparent;color:var(--acc2);cursor:pointer">debug</button></div>
 
   <div id="main">
     <div id="tree-panel">
@@ -345,6 +345,19 @@ function swBar(msg, color, hideMs) {
   document.getElementById('sw-txt2').textContent = msg;
   bar.classList.add('show');
   if (hideMs) setTimeout(() => bar.classList.remove('show'), hideMs);
+}
+
+function swDebug() {
+  if (!S.swReg?.active) { alert('SW no activo todavía'); return; }
+  const handler = e => {
+    if (e.data?.type !== 'FILE_LIST') return;
+    navigator.serviceWorker.removeEventListener('message', handler);
+    const keys = e.data.keys;
+    console.log('SW sample keys:', keys);
+    alert(`SW tiene ${e.data.total} archivos.\nPrimeras keys:\n${keys.join('\n')}`);
+  };
+  navigator.serviceWorker.addEventListener('message', handler);
+  S.swReg.active.postMessage({ type: 'LIST_FILES' });
 }
 
 // Enviar todos los archivos al SW

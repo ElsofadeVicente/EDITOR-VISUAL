@@ -476,14 +476,16 @@ function reloadPage(){if(S.currentHTML)loadPage(S.currentHTML)}
 
 // ═══════════════════════════════════════════
 // BUILD DOC — construye HTML completo desde S.files
+// Inyecta un shim que intercepta fetch/XHR/createElement
+// para que los recursos dinámicos también funcionen
 // ═══════════════════════════════════════════
 function buildDoc(htmlPath){
   const f=S.files[htmlPath]; if(!f?.isText)return'';
   const dir=htmlPath.split('/').slice(0,-1).join('/');
   let html=f.content;
 
-  // Inline <link rel="stylesheet"> — soporta href="..." y href='...' y href=...
-  html=html.replace(/<link\s([^>]*?)>/gi,(tag,attrs)=>{
+  // 1. Inline <link rel="stylesheet">
+  html=html.replace(/<link\s([^>]*?)(?:\/>|>)/gi,(tag,attrs)=>{
     if(!/rel=["']?stylesheet/i.test(attrs))return tag;
     const m=attrs.match(/href=["']?([^"'\s>]+)["']?/i);
     if(!m)return tag;
@@ -495,7 +497,7 @@ function buildDoc(htmlPath){
     return`<style>\n${css}\n</style>`;
   });
 
-  // Inline <script src="...">
+  // 2. Inline <script src="..."> estáticos
   html=html.replace(/<script([^>]*)src=["']?([^"'\s>]+)["']?([^>]*)><\/script>/gi,(_,pre,src,post)=>{
     const s=src.split('?')[0];
     if(s.startsWith('http')||s.startsWith('//'))return _;
@@ -505,19 +507,203 @@ function buildDoc(htmlPath){
     return`<script${attrs}>\n${jf.content}\n<\/script>`;
   });
 
-  // Reemplazar assets con blob URLs
+  // 3. Reemplazar src/href de assets con blob URLs
   html=html.replace(/(\b(?:src|href)=["'])([^"'#?]+)(["'])/gi,(_,a,p,b)=>{
     if(p.startsWith('http')||p.startsWith('//')||p.startsWith('data:'))return _;
     const af=findFile(resolveRel(dir,p));
     return af?.blobUrl?a+af.blobUrl+b:_;
   });
 
-  // Inyectar override CSS (sin bridge — se inyecta por DOM cuando se pausa)
+  // 4. Construir el mapa de recursos para el shim
+  // Clave = path relativo desde la carpeta del HTML; valor = contenido o blob URL
+  const shimMap={};
+  for(const[path,file] of Object.entries(S.files)){
+    // Registrar con múltiples claves para máxima cobertura:
+    // - path completo: "blackjack/js/blackjack-app.js"
+    // - relativo al HTML: "js/blackjack-app.js"
+    // - solo nombre: "blackjack-app.js"
+    const rel=stripRoot(path);
+    const fromDir=makeRelative(dir,rel);
+    const name=path.split('/').pop();
+    const content=file.isText?file.content:null;
+    const blob=file.blobUrl||null;
+    const entry={content,blob,mime:file.mime,isText:file.isText};
+    shimMap[rel]=entry;
+    shimMap[fromDir]=entry;
+    shimMap[name]=entry;
+    // También rutas con ../
+    shimMap[path]=entry;
+  }
+
+  // 5. Serializar el mapa (solo texto — los binarios van por blob URL)
+  // Limite de 2MB por archivo para no explotar el srcdoc
+  const MAX_INLINE=2*1024*1024;
+  const shimData={};
+  for(const[k,v] of Object.entries(shimMap)){
+    if(v.isText&&v.content!=null&&v.content.length<MAX_INLINE) shimData[k]={t:v.content,m:v.mime||'text/plain'};
+    else if(v.blob) shimData[k]={b:v.blob,m:v.mime||'application/octet-stream'};
+  }
+
+  const shimScript=`<script id="__ve_shim__">
+(function(){
+  const FILES=${JSON.stringify(shimData)};
+  
+  function normalize(u){
+    if(!u)return u;
+    // Quitar query string y hash
+    u=u.split('?')[0].split('#')[0];
+    // Resolver ../ y ./
+    const parts=u.split('/'),out=[];
+    for(const p of parts){if(p==='..')out.pop();else if(p&&p!=='.')out.push(p)}
+    return out.join('/');
+  }
+  
+  function lookup(url){
+    if(!url)return null;
+    // Intentar la URL tal cual
+    let u=normalize(url);
+    if(FILES[u])return FILES[u];
+    // Solo el nombre del archivo
+    const name=u.split('/').pop();
+    if(FILES[name])return FILES[name];
+    // Buscar por sufijo
+    for(const k of Object.keys(FILES)){
+      if(k.endsWith('/'+name)||k===name)return FILES[k];
+    }
+    // Buscar por sufijo más largo
+    for(const k of Object.keys(FILES)){
+      if(u.endsWith(k)||k.endsWith(u))return FILES[k];
+    }
+    return null;
+  }
+  
+  function makeResponse(entry,url){
+    if(entry.t!=null){
+      return new Response(entry.t,{status:200,headers:{'Content-Type':entry.m||'text/plain','Access-Control-Allow-Origin':'*'}});
+    }
+    if(entry.b){
+      // Para blob URLs redirigir
+      return fetch(entry.b);
+    }
+    return null;
+  }
+  
+  // Interceptar fetch
+  const _fetch=window.fetch.bind(window);
+  window.fetch=function(url,opts){
+    if(typeof url==='string'&&!url.startsWith('http')&&!url.startsWith('//')){
+      const entry=lookup(url);
+      if(entry){
+        if(entry.t!=null)return Promise.resolve(new Response(entry.t,{status:200,headers:{'Content-Type':entry.m||'text/plain','Access-Control-Allow-Origin':'*'}}));
+        if(entry.b)return _fetch(entry.b,opts);
+      }
+    }
+    return _fetch(url,opts);
+  };
+  
+  // Interceptar XMLHttpRequest
+  const _XHROpen=XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open=function(method,url,...rest){
+    if(typeof url==='string'&&!url.startsWith('http')&&!url.startsWith('//')){
+      const entry=lookup(url);
+      if(entry&&entry.b){url=entry.b;}
+      else if(entry&&entry.t!=null){
+        // Guardar el contenido para responder en send()
+        this.__ve_content__=entry.t;
+        this.__ve_mime__=entry.m;
+      }
+    }
+    return _XHROpen.call(this,method,url,...rest);
+  };
+  const _XHRSend=XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send=function(body){
+    if(this.__ve_content__!=null){
+      const content=this.__ve_content__;
+      const mime=this.__ve_mime__;
+      setTimeout(()=>{
+        Object.defineProperty(this,'responseText',{value:content,writable:true});
+        Object.defineProperty(this,'response',{value:content,writable:true});
+        Object.defineProperty(this,'status',{value:200,writable:true});
+        Object.defineProperty(this,'readyState',{value:4,writable:true});
+        this.onreadystatechange&&this.onreadystatechange();
+        this.onload&&this.onload();
+      },0);
+      return;
+    }
+    return _XHRSend.call(this,body);
+  };
+  
+  // Interceptar createElement('script') con src dinámico
+  const _createElement=document.createElement.bind(document);
+  document.createElement=function(tag,...args){
+    const el=_createElement(tag,...args);
+    if(tag.toLowerCase()==='script'){
+      let _src='';
+      const _setSrc=Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype,'src')?.set;
+      Object.defineProperty(el,'src',{
+        get:()=>_src,
+        set(v){
+          _src=v;
+          if(v&&!v.startsWith('http')&&!v.startsWith('//')){
+            const entry=lookup(v);
+            if(entry&&entry.t!=null){
+              // Inyectar como texto en vez de cargar la URL
+              el.removeAttribute('src');
+              el.textContent=entry.t;
+              // Simular onload después de un tick
+              setTimeout(()=>{el.onload&&el.onload()},0);
+              return;
+            }
+            if(entry&&entry.b){_setSrc&&_setSrc.call(el,entry.b);return}
+          }
+          _setSrc&&_setSrc.call(el,v);
+        },
+        configurable:true
+      });
+    }
+    return el;
+  };
+  
+  // Interceptar Image src (para logos, escudos, etc.)
+  const _imgSrc=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');
+  if(_imgSrc?.set){
+    Object.defineProperty(HTMLImageElement.prototype,'src',{
+      get:_imgSrc.get,
+      set(v){
+        if(v&&!v.startsWith('http')&&!v.startsWith('data:')&&!v.startsWith('//')){
+          const entry=lookup(v);
+          if(entry?.b){_imgSrc.set.call(this,entry.b);return}
+        }
+        _imgSrc.set.call(this,v);
+      },
+      configurable:true
+    });
+  }
+})();
+<\/script>`;
+
+  // 6. Inyectar shim PRIMERO en el <head>, luego override CSS al final del body
   const css=buildOverrideCSS();
-  const inj=`<style id="__ve_style__">${css}</style>`;
-  if(html.includes('</body>'))return html.replace('</body>',inj+'\n</body>');
-  if(html.includes('</html>'))return html.replace('</html>',inj+'\n</html>');
-  return html+inj;
+  const styleInj=`<style id="__ve_style__">${css}</style>`;
+  
+  if(html.includes('<head>')){
+    html=html.replace('<head>','<head>\n'+shimScript);
+  } else {
+    html=shimScript+html;
+  }
+  
+  if(html.includes('</body>'))return html.replace('</body>',styleInj+'\n</body>');
+  if(html.includes('</html>'))return html.replace('</html>',styleInj+'\n</html>');
+  return html+styleInj;
+}
+
+// Calcula el path relativo desde fromDir hacia toPath
+function makeRelative(fromDir,toPath){
+  if(!fromDir)return toPath;
+  // Si toPath empieza con fromDir, devolver la parte restante
+  const prefix=fromDir+'/';
+  if(toPath.startsWith(prefix))return toPath.slice(prefix.length);
+  return toPath;
 }
 
 function inlineCSS(css,cssDir){
@@ -540,6 +726,10 @@ function findFile(path){
   const wp=S.name+'/'+path;if(S.files[wp])return S.files[wp];
   const k=Object.keys(S.files).find(k=>k===path||k.endsWith('/'+path));
   return k?S.files[k]:null;
+}
+
+function stripRoot(path){
+  return path.startsWith(S.name+'/')?path.slice(S.name.length+1):path;
 }
 
 function resolveRel(base,rel){

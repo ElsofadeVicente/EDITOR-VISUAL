@@ -139,6 +139,45 @@ select.pi{cursor:pointer}
 
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+
+/* PROGRESS OVERLAY */
+#load-overlay{
+  display:none;position:absolute;inset:0;z-index:200;
+  background:rgba(15,15,19,.85);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;
+}
+#load-overlay.show{display:flex}
+#load-box{
+  width:320px;padding:28px 28px 24px;
+  background:var(--bg2);border:1px solid var(--brd2);
+  border-radius:14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;gap:12px;
+}
+#load-title{font-size:15px;font-weight:600;color:var(--tx);letter-spacing:-.2px}
+#load-file{
+  font-size:11px;color:var(--tx3);font-family:monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-height:16px;
+}
+#load-bar-wrap{
+  height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;
+}
+#load-bar{
+  height:100%;width:0%;background:var(--acc);border-radius:99px;
+  transition:width .1s ease;
+}
+#load-bar.pulse{
+  width:100%;
+  background:linear-gradient(90deg,var(--bg3) 0%,var(--acc) 50%,var(--bg3) 100%);
+  background-size:200% 100%;
+  animation:pulse-slide 1.2s linear infinite;
+}
+@keyframes pulse-slide{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+#load-stats{font-size:11px;color:var(--tx3);text-align:right}
 </style>
 </head>
 <body>
@@ -206,6 +245,18 @@ select.pi{cursor:pointer}
             Todos los HTML, CSS, JS, imágenes y fuentes<br>
             se sirven como un servidor local real.
           </p>
+        </div>
+
+        <!-- PROGRESS OVERLAY -->
+        <div id="load-overlay">
+          <div id="load-box">
+            <div id="load-title">Cargando proyecto…</div>
+            <div id="load-file">Leyendo estructura de carpetas</div>
+            <div id="load-bar-wrap">
+              <div id="load-bar"></div>
+            </div>
+            <div id="load-stats">0 / 0 archivos</div>
+          </div>
         </div>
         <div id="play-banner">
           <span>▶ Modo Jugar — servidor HTTP activo, funciona exactamente como localhost</span>
@@ -319,14 +370,16 @@ async function initSW() {
   }
 
   try {
-    // Register the external sw.js file (must be same-origin)
-    const swPath = new URL('./sw.js', location.href).pathname;
-    const reg = await navigator.serviceWorker.register(swPath, { scope: './visualcss/' });
+    // Register sw.js from same directory as this editor
+    const swUrl = new URL('./sw.js', location.href).href;
+    // Scope must be relative to sw.js location — use same dir + visualcss/
+    const scopeUrl = new URL('./visualcss/', location.href).href;
+    const reg = await navigator.serviceWorker.register(swUrl, { scope: scopeUrl });
     S.swReg = reg;
 
     await navigator.serviceWorker.ready;
     S.swReady = true;
-    S.SW_BASE = new URL('./visualcss/', location.href).href;
+    S.SW_BASE = scopeUrl; // e.g. https://user.github.io/repo/visualcss/
 
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data?.type === 'SW_READY') {
@@ -352,20 +405,67 @@ function pushFilesToSW() {
   if (!S.swReady || !S.swReg?.active) return;
   const payload = {};
   for (const [path, f] of Object.entries(S.files)) {
+    // Key without project root prefix: "blackjack/index.html", "css/global.css", "js/shared.js"
     const swPath = stripRoot(path);
     payload[swPath] = { content: f.content, mime: f.mime };
   }
-  S.swReg.active.postMessage({ type: 'SET_FILES', files: payload });
+  S.swReg.active.postMessage({
+    type: 'SET_FILES',
+    files: payload,
+    projectRoot: S.name
+  });
 }
 
 function updateSW(path, content) {
   if (!S.swReady || !S.swReg?.active) return;
   const f = S.files[path];
-  S.swReg.active.postMessage({ type: 'UPDATE_FILE', path: stripRoot(path), content, mime: f?.mime || mime(path.split('.').pop()) });
+  S.swReg.active.postMessage({
+    type: 'UPDATE_FILE',
+    path: stripRoot(path),
+    content,
+    mime: f?.mime || mime(path.split('.').pop())
+  });
 }
 
 function stripRoot(path) {
+  // Remove project root prefix: "Version 9/blackjack/index.html" → "blackjack/index.html"
   return path.startsWith(S.name + '/') ? path.slice(S.name.length + 1) : path;
+}
+
+// Rewrite all relative URLs in HTML/CSS/JS to be SW-scope-absolute
+// e.g. "../../js/shared.js" when inside "blackjack/" → "/visualcss/js/shared.js"
+// This is critical for paths that escape the project root with ../
+function rewriteURLsForSW(content, filePath) {
+  const fileDir = stripRoot(filePath).split('/').slice(0, -1).join('/');
+  const swBase = S.SW_BASE; // e.g. https://user.github.io/repo/visualcss/
+
+  // Rewrite src="..." href="..." url("...") in text content
+  return content
+    // src / href attributes
+    .replace(/(\b(?:src|href)\s*=\s*["'])([^"'#?]+)(["'])/g, (m, pre, url, post) => {
+      if (url.startsWith('http') || url.startsWith('//') || url.startsWith('data:') || url.startsWith('/visualcss/')) return m;
+      const resolved = resolveRelative(fileDir, url);
+      return pre + swBase + resolved + post;
+    })
+    // url(...) in CSS
+    .replace(/url\(\s*["']?([^"')#?\s]+)["']?\s*\)/g, (m, url) => {
+      if (url.startsWith('http') || url.startsWith('//') || url.startsWith('data:') || url.startsWith('/visualcss/')) return m;
+      const resolved = resolveRelative(fileDir, url);
+      return `url("${swBase}${resolved}")`;
+    });
+}
+
+// Resolve a relative URL against a base directory (no leading slash)
+// e.g. resolveRelative("blackjack", "../../js/shared.js") → "js/shared.js"
+// e.g. resolveRelative("blackjack", "css/blackjack.css") → "blackjack/css/blackjack.css"
+function resolveRelative(baseDir, rel) {
+  const parts = (baseDir ? baseDir + '/' + rel : rel).split('/');
+  const out = [];
+  for (const p of parts) {
+    if (p === '..') out.pop();
+    else if (p && p !== '.') out.push(p);
+  }
+  return out.join('/');
 }
 
 // ══════════════════════════════════════════════════
@@ -399,24 +499,19 @@ async function openFolderFSAPI() {
     clearProject();
     S.dirHandle = dh;
     S.name = dh.name;
-    setStatus('Leyendo archivos…', false);
-    await readDir(dh, dh.name);
-    document.getElementById('btn-save-all').style.display = 'flex';
-    document.getElementById('btn-export').style.display = 'none';
-    onLoaded();
-  } catch(e) {
-    if (e.name !== 'AbortError') setStatus('Error: ' + e.message, false);
-  }
-}
 
-async function readDir(handle, base) {
-  for await (const [name, entry] of handle.entries()) {
-    if (name.startsWith('.') || name === 'node_modules' || name === '__pycache__') continue;
-    const fp = base + '/' + name;
-    if (entry.kind === 'directory') {
-      await readDir(entry, fp);
-    } else {
-      const ext = name.split('.').pop().toLowerCase();
+    // Phase 1: scan — count all files first
+    P.show('Explorando carpeta…');
+    P.pulse('Contando archivos…');
+    const allEntries = [];
+    await scanDir(dh, dh.name, allEntries);
+    const total = allEntries.length;
+
+    // Phase 2: read each file
+    P.init(total);
+    document.getElementById('load-title').textContent = `Cargando "${dh.name}"`;
+    for (const { name, entry, fp, ext } of allEntries) {
+      P.tick(fp.replace(S.name + '/', ''));
       try {
         const file = await entry.getFile();
         if (TEXT_EXT.has(ext)) {
@@ -427,7 +522,29 @@ async function readDir(handle, base) {
           const blobUrl = URL.createObjectURL(new Blob([ab], { type: mime(ext) }));
           S.files[fp] = { content: ab, mime: mime(ext), type: TYPES[ext]||'other', ext, isText: false, modified: false, name, fileHandle: entry, blobUrl };
         }
-      } catch(_) {}
+      } catch(_) { P.done++; } // count even if skipped
+    }
+
+    P.hide();
+    document.getElementById('btn-save-all').style.display = 'flex';
+    document.getElementById('btn-export').style.display = 'none';
+    onLoaded();
+  } catch(e) {
+    P.hide();
+    if (e.name !== 'AbortError') setStatus('Error: ' + e.message, false);
+  }
+}
+
+// Flat scan — collect all file entries without reading content yet
+async function scanDir(handle, base, out) {
+  for await (const [name, entry] of handle.entries()) {
+    if (name.startsWith('.') || name === 'node_modules' || name === '__pycache__') continue;
+    const fp = base + '/' + name;
+    if (entry.kind === 'directory') {
+      await scanDir(entry, fp, out);
+    } else {
+      const ext = name.split('.').pop().toLowerCase();
+      out.push({ name, entry, fp, ext });
     }
   }
 }
@@ -436,29 +553,37 @@ function loadFileList(list) {
   if (!list.length) return;
   clearProject();
   S.name = (list[0].webkitRelativePath || list[0].name).split('/')[0] || 'proyecto';
+
+  P.show(`Cargando "${S.name}"`);
+  P.init(list.length);
+
   let pending = list.length;
-  const done = () => {
+  const done = (filename) => {
+    P.tick(filename);
     if (--pending > 0) return;
+    P.hide();
     document.getElementById('btn-save-all').style.display = 'none';
     document.getElementById('btn-export').style.display = 'flex';
     onLoaded();
   };
+
   list.forEach(file => {
     const rel = file.webkitRelativePath || file.name;
+    const shortName = rel.replace(S.name + '/', '');
     const ext = rel.split('.').pop().toLowerCase();
     if (TEXT_EXT.has(ext)) {
       const r = new FileReader();
-      r.onload = ev => { S.files[rel] = { content: ev.target.result, mime: mime(ext), type: TYPES[ext]||'other', ext, isText: true, modified: false, name: file.name }; done(); };
-      r.onerror = done;
+      r.onload = ev => { S.files[rel] = { content: ev.target.result, mime: mime(ext), type: TYPES[ext]||'other', ext, isText: true, modified: false, name: file.name }; done(shortName); };
+      r.onerror = () => done(shortName);
       r.readAsText(file);
     } else {
       const r = new FileReader();
       r.onload = ev => {
         const blob = URL.createObjectURL(new Blob([ev.target.result], { type: mime(ext) }));
         S.files[rel] = { content: ev.target.result, mime: mime(ext), type: TYPES[ext]||'other', ext, isText: false, modified: false, name: file.name, blobUrl: blob };
-        done();
+        done(shortName);
       };
-      r.onerror = done;
+      r.onerror = () => done(shortName);
       r.readAsArrayBuffer(file);
     }
   });
@@ -469,6 +594,43 @@ function clearProject() {
   S.files = {}; S.tree = {}; S.overrides = {}; S.undoStack = [];
   S.activeFile = null; S.currentHTML = null; S.dirHandle = null;
 }
+
+// ══════════════════════════════════════════════════
+// PROGRESS BAR
+// ══════════════════════════════════════════════════
+const P = {
+  total: 0, done: 0,
+  show(title) {
+    document.getElementById('load-title').textContent = title || 'Cargando proyecto…';
+    document.getElementById('load-file').textContent = '';
+    document.getElementById('load-stats').textContent = '';
+    document.getElementById('load-bar').style.width = '0%';
+    document.getElementById('load-bar').classList.remove('pulse');
+    document.getElementById('load-overlay').classList.add('show');
+    document.getElementById('no-prev').style.display = 'none';
+  },
+  pulse(msg) {
+    document.getElementById('load-file').textContent = msg || '';
+    document.getElementById('load-bar').classList.add('pulse');
+    document.getElementById('load-stats').textContent = '';
+  },
+  init(total) {
+    P.total = total; P.done = 0;
+    document.getElementById('load-bar').classList.remove('pulse');
+    document.getElementById('load-bar').style.width = '0%';
+    document.getElementById('load-stats').textContent = `0 / ${total} archivos`;
+  },
+  tick(filename) {
+    P.done++;
+    const pct = P.total > 0 ? Math.round((P.done / P.total) * 100) : 0;
+    document.getElementById('load-bar').style.width = pct + '%';
+    document.getElementById('load-file').textContent = filename || '';
+    document.getElementById('load-stats').textContent = `${P.done} / ${P.total} archivos`;
+  },
+  hide() {
+    document.getElementById('load-overlay').classList.remove('show');
+  }
+};
 
 // Drag & drop files/folders onto window
 document.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropover').classList.add('show'); });
@@ -498,7 +660,7 @@ function onLoaded() {
   const idx = htmls.find(p => /\/index\.(html|htm)$/i.test(p)) || htmls[0];
   if (idx) openPage(idx);
 
-  setStatus(`${Object.keys(S.files).length} archivos cargados`, true);
+  setStatus(`✓ ${Object.keys(S.files).length} archivos cargados — ${S.name}`, true);
 }
 
 // ══════════════════════════════════════════════════
@@ -612,12 +774,12 @@ function renderEdit() {
   showFrame('ef');
 
   if (S.swReady) {
-    // Patch HTML with bridge and push to SW, then load via real URL
-    const patched = injectBridgeIntoHTML(f.content);
+    // Rewrite all relative URLs to SW-absolute, then inject bridge
+    const rewritten = rewriteURLsForSW(f.content, S.currentHTML);
+    const patched = injectBridgeIntoHTML(rewritten);
     S.swReg.active.postMessage({ type: 'UPDATE_FILE', path: stripRoot(S.currentHTML), content: patched, mime: 'text/html' });
     document.getElementById('ef').src = S.SW_BASE + stripRoot(S.currentHTML) + '?v=' + Date.now();
   } else {
-    // Inline mode: bundle everything into a single srcdoc
     document.getElementById('ef').removeAttribute('src');
     document.getElementById('ef').srcdoc = buildBundle(S.currentHTML, true);
   }
@@ -631,9 +793,10 @@ function renderPlay() {
   showFrame('pf');
 
   if (S.swReady) {
-    // Restore original HTML (no bridge) and load via SW
+    // Rewrite URLs so all ../.. paths resolve correctly via SW
     const f = S.files[S.currentHTML];
-    S.swReg.active.postMessage({ type: 'UPDATE_FILE', path: stripRoot(S.currentHTML), content: f.content, mime: 'text/html' });
+    const rewritten = rewriteURLsForSW(f.content, S.currentHTML);
+    S.swReg.active.postMessage({ type: 'UPDATE_FILE', path: stripRoot(S.currentHTML), content: rewritten, mime: 'text/html' });
     document.getElementById('pf').src = S.SW_BASE + stripRoot(S.currentHTML) + '?v=' + Date.now();
   } else {
     document.getElementById('pf').removeAttribute('src');

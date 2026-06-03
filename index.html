@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VisualCSS — Editor de Proyectos</title>
+<title>VisualCSS — Editor Visual</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -37,7 +37,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 /* SW BAR */
 #sw-bar{display:none;align-items:center;gap:8px;padding:3px 12px;background:rgba(99,102,241,.1);border-bottom:1px solid rgba(99,102,241,.2);flex-shrink:0;font-size:11px;color:var(--acc2)}
 #sw-bar.show{display:flex}
-#sw-dot2{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--am)}
+#sw-dot2{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 
 /* TREE */
 #tree-panel{width:220px;min-width:120px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--brd);overflow:hidden}
@@ -66,7 +66,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 
 /* PAGE BAR */
 #page-bar{display:none;align-items:center;gap:5px;padding:5px 10px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-shrink:0;overflow-x:auto}
-.ptab{padding:4px 11px;border-radius:var(--r);font-size:12px;cursor:pointer;color:var(--tx2);white-space:nowrap;border:1px solid transparent;transition:all .1s;flex-shrink:0}
+.ptab{padding:4px 11px;border-radius:var(--r);font-size:11px;cursor:pointer;color:var(--tx2);white-space:nowrap;border:1px solid transparent;transition:all .1s;flex-shrink:0;max-width:200px;overflow:hidden;text-overflow:ellipsis}
 .ptab:hover{color:var(--tx);background:var(--bg3)}
 .ptab.on{color:var(--acc2);background:var(--acc3);border-color:rgba(99,102,241,.3)}
 
@@ -74,30 +74,22 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 #center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 #preview-bar{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-shrink:0}
 #url-bar{flex:1;background:var(--bg3);border:1px solid var(--brd2);border-radius:var(--r);color:var(--tx2);font-size:11px;font-family:monospace;padding:3px 8px;outline:none;min-width:0}
-#url-bar:focus{border-color:var(--acc)}
 
 /* PREVIEW */
 #preview-wrap{flex:1;min-height:0;overflow:hidden;position:relative;background:#fff}
 #preview-iframe{width:100%;height:100%;border:none;display:none;position:absolute;inset:0}
-#no-prev{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;background:var(--bg);color:var(--tx3);position:absolute;inset:0}
+#no-prev{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;background:var(--bg);color:var(--tx3);position:absolute;inset:0;z-index:1}
 #no-prev .ico{font-size:48px;opacity:.15}
 #no-prev p{font-size:14px}
 #no-prev .hint{font-size:12px;line-height:1.9;text-align:center;max-width:320px;color:var(--tx3)}
 
 /* PLAY BANNER */
-#play-banner{display:none;position:absolute;top:0;left:0;right:0;z-index:100;background:rgba(21,128,61,.95);color:#fff;padding:6px 14px;font-size:12px;font-weight:600;align-items:center;gap:10px;backdrop-filter:blur(4px)}
+#play-banner{display:none;position:absolute;top:0;left:0;right:0;z-index:100;background:rgba(21,128,61,.95);color:#fff;padding:6px 14px;font-size:12px;font-weight:600;align-items:center;gap:10px}
 #play-banner.show{display:flex}
 #play-banner span{flex:1}
 #play-exit{padding:3px 11px;border-radius:5px;border:1.5px solid rgba(255,255,255,.55);background:transparent;color:#fff;font-size:12px;cursor:pointer;font-weight:600}
 #play-exit:hover{background:rgba(255,255,255,.15)}
-
-/* EDIT OVERLAY — click-blocker en modo editar para no disparar links */
-#edit-overlay{display:none;position:absolute;inset:0;z-index:10;cursor:default}
-#edit-overlay.show{display:block}
-
-/* EDIT MODE indicator */
-body.edit-active #t-play{opacity:.5}
-body.play-active #t-sel,body.play-active #t-drag,body.play-active #t-rsz{opacity:.35;pointer-events:none}
+body.play-active .edit-tools{opacity:.35;pointer-events:none}
 body.play-active #inspector{opacity:.35;pointer-events:none}
 
 /* CODE PANEL */
@@ -125,7 +117,7 @@ body.play-active #inspector{opacity:.35;pointer-events:none}
 .isec{padding:8px 12px 4px}
 .isec-ttl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);padding-bottom:5px;border-bottom:1px solid var(--brd);margin-bottom:6px}
 .pr{display:flex;align-items:center;gap:4px;margin-bottom:5px}
-.pn{font-size:11px;color:var(--tx3);width:84px;flex-shrink:0}
+.pn{font-size:11px;color:var(--tx3);width:90px;flex-shrink:0}
 .pi{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--brd2);border-radius:4px;color:var(--tx);font-size:11px;font-family:monospace;padding:3px 6px;outline:none;transition:border .1s}
 .pi:focus{border-color:var(--acc)}
 input[type=color].pi{padding:1px 2px;height:22px;width:26px;flex:none;cursor:pointer}
@@ -138,21 +130,21 @@ select.pi{cursor:pointer}
 #rz-l,#rz-r{width:4px;cursor:ew-resize;background:transparent;flex-shrink:0}
 #rz-l:hover,#rz-r:hover{background:var(--acc)}
 
-/* DROP OVERLAY */
+/* DROP */
 #dropover{display:none;position:fixed;inset:0;z-index:9999;background:rgba(99,102,241,.08);border:3px dashed var(--acc);justify-content:center;align-items:center;flex-direction:column;gap:10px;pointer-events:none}
 #dropover.show{display:flex}
 #dropover p{font-size:20px;color:var(--acc2);font-weight:700}
 
-/* PROGRESS OVERLAY */
+/* PROGRESS */
 #load-overlay{display:none;position:absolute;inset:0;z-index:200;background:rgba(15,15,19,.88);backdrop-filter:blur(6px);align-items:center;justify-content:center}
 #load-overlay.show{display:flex}
-#load-box{width:340px;padding:28px 28px 24px;background:var(--bg2);border:1px solid var(--brd2);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px}
+#load-box{width:340px;padding:28px;background:var(--bg2);border:1px solid var(--brd2);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px}
 #load-title{font-size:15px;font-weight:600;color:var(--tx)}
 #load-file{font-size:11px;color:var(--tx3);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:16px}
 #load-bar-wrap{height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
 #load-bar{height:100%;width:0%;background:var(--acc);border-radius:99px;transition:width .08s ease}
-#load-bar.pulse{width:100%;background:linear-gradient(90deg,var(--bg3) 0%,var(--acc) 50%,var(--bg3) 100%);background-size:200% 100%;animation:pulse-anim 1.2s linear infinite}
-@keyframes pulse-anim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+#load-bar.pulse{width:100%;background:linear-gradient(90deg,var(--bg3) 0%,var(--acc) 50%,var(--bg3) 100%);background-size:200% 100%;animation:pa 1.2s linear infinite}
+@keyframes pa{0%{background-position:200% 0}100%{background-position:-200% 0}}
 #load-stats{font-size:11px;color:var(--tx3);text-align:right}
 
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -161,15 +153,14 @@ select.pi{cursor:pointer}
 </head>
 <body>
 <div id="app">
-
   <div id="topbar">
     <span class="logo">◈ VisualCSS</span>
     <div class="sep"></div>
     <button class="btn play" id="t-play" onclick="setMode('play')">▶ Jugar</button>
     <div class="sep"></div>
-    <button class="btn on"  id="t-sel"  onclick="setMode('select')">↖ Seleccionar</button>
-    <button class="btn"     id="t-drag" onclick="setMode('drag')">✥ Mover</button>
-    <button class="btn"     id="t-rsz"  onclick="setMode('resize')">⤢ Redimensionar</button>
+    <button class="btn edit-tools" id="t-sel"  onclick="setMode('select')">↖ Seleccionar</button>
+    <button class="btn edit-tools" id="t-drag" onclick="setMode('drag')">✥ Mover</button>
+    <button class="btn edit-tools" id="t-rsz"  onclick="setMode('resize')">⤢ Redimensionar</button>
     <div class="sep"></div>
     <button class="btn" onclick="undo()">↩ Deshacer</button>
     <button class="btn on" id="vp-full"  onclick="setVP('100%')"   style="font-size:11px">Full</button>
@@ -182,7 +173,7 @@ select.pi{cursor:pointer}
     <div id="stat"><div id="sdot"></div><span id="stxt">abre una carpeta para empezar</span></div>
   </div>
 
-  <div id="sw-bar"><span id="sw-dot2"></span><span id="sw-txt2"></span><button onclick="swDebug()" style="margin-left:8px;padding:1px 8px;font-size:10px;border:1px solid rgba(99,102,241,.4);border-radius:4px;background:transparent;color:var(--acc2);cursor:pointer">debug</button></div>
+  <div id="sw-bar"><span id="sw-dot2"></span><span id="sw-txt2" style="flex:1"></span></div>
 
   <div id="main">
     <div id="tree-panel">
@@ -193,9 +184,7 @@ select.pi{cursor:pointer}
       <div id="tree-scroll"></div>
       <div id="tree-bottom"></div>
     </div>
-
     <div id="rz-l"></div>
-
     <div id="center">
       <div id="page-bar"></div>
       <div id="preview-bar">
@@ -207,24 +196,16 @@ select.pi{cursor:pointer}
         <div id="no-prev">
           <div class="ico">📁</div>
           <p>Abre tu proyecto para empezar</p>
-          <p class="hint">Usa el botón <strong>"Abrir carpeta"</strong> del panel izquierdo.<br>
-          Todos los archivos se sirven como un servidor local real.<br>
-          Firebase, fetch, imports relativos — todo funciona.</p>
+          <p class="hint">Usa el botón <strong>"Abrir carpeta"</strong> del panel izquierdo.<br>HTML, CSS, JS, imágenes y fuentes se cargan desde memoria.</p>
         </div>
         <div id="play-banner">
-          <span>▶ Modo Jugar — servidor HTTP activo, igual que localhost</span>
+          <span>▶ Modo Jugar — haz clic en "Seleccionar" para pausar y editar</span>
           <button id="play-exit" onclick="setMode('select')">✕ Pausar y editar</button>
         </div>
-        <!-- UN SOLO IFRAME — nunca se recarga al cambiar modo -->
-        <iframe id="preview-iframe"
-          sandbox="allow-scripts allow-same-origin allow-modals allow-forms allow-popups allow-pointer-lock allow-downloads">
-        </iframe>
-        <!-- Overlay transparente que bloquea los clics del juego en modo editar -->
-        <div id="edit-overlay"></div>
-        <!-- PROGRESS -->
+        <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin allow-modals allow-forms allow-popups allow-pointer-lock"></iframe>
         <div id="load-overlay">
           <div id="load-box">
-            <div id="load-title">Cargando proyecto…</div>
+            <div id="load-title">Cargando…</div>
             <div id="load-file"></div>
             <div id="load-bar-wrap"><div id="load-bar"></div></div>
             <div id="load-stats"></div>
@@ -240,796 +221,534 @@ select.pi{cursor:pointer}
         <textarea id="code-ed" spellcheck="false" placeholder="Selecciona un archivo del árbol..."></textarea>
       </div>
     </div>
-
     <div id="rz-r"></div>
-
     <div id="inspector">
       <div class="phdr">Inspector</div>
       <div id="insp-sel"><div id="insp-tag"></div><div id="insp-path"></div></div>
       <div id="insp-body">
         <div id="insp-empty">
           <div style="font-size:28px;opacity:.25;margin-bottom:10px">↖</div>
-          En modo <strong>Seleccionar</strong> o <strong>Mover</strong>, haz clic en cualquier elemento del preview.<br><br>
-          El juego queda pausado pero su estado se conserva.
+          Pulsa <strong>Seleccionar</strong> o <strong>Mover</strong> para pausar el juego y editar cualquier elemento.<br><br>
+          El estado del juego se conserva al pausar.
         </div>
       </div>
       <button id="btn-copy-css" onclick="copyCSSChanges()">📋 Copiar CSS</button>
     </div>
   </div>
 </div>
-
-<div id="dropover"><p>📁 Suelta la carpeta aquí</p><span style="color:var(--tx2);font-size:13px">Se montará como servidor HTTP local</span></div>
+<div id="dropover"><p>📁 Suelta la carpeta aquí</p></div>
 
 <script>
 'use strict';
 
-// ════════════════════════════════════════════════════
-// TIPOS Y MIME
-// ════════════════════════════════════════════════════
-const TYPES = {
-  html:'html',htm:'html',css:'css',js:'js',mjs:'js',
-  png:'img',jpg:'img',jpeg:'img',gif:'img',webp:'img',svg:'img',ico:'img',avif:'img',
-  woff:'font',woff2:'font',ttf:'font',otf:'font',eot:'font',
-  json:'json',md:'text',txt:'text',xml:'text',csv:'text',
-};
-const TEXT_EXT  = new Set(['html','htm','css','js','mjs','json','md','txt','xml','svg','csv']);
-const EDIT_EXT  = new Set(['html','htm','css','js','mjs']);
+// ═══════════════════════════════════════════
+// TIPOS
+// ═══════════════════════════════════════════
+const TYPES={html:'html',htm:'html',css:'css',js:'js',mjs:'js',png:'img',jpg:'img',jpeg:'img',gif:'img',webp:'img',svg:'img',ico:'img',avif:'img',woff:'font',woff2:'font',ttf:'font',otf:'font',eot:'font',json:'json',md:'text',txt:'text',xml:'text',csv:'text',mp3:'audio',ogg:'audio',wav:'audio',mp4:'video',webm:'video'};
+const TEXT_EXT=new Set(['html','htm','css','js','mjs','json','md','txt','xml','svg','csv']);
+const EDIT_EXT=new Set(['html','htm','css','js','mjs']);
+function getMime(e){return({html:'text/html',htm:'text/html',css:'text/css',js:'text/javascript',mjs:'text/javascript',json:'application/json',svg:'image/svg+xml',xml:'application/xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',ico:'image/x-icon',avif:'image/avif',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',eot:'application/vnd.ms-fontobject',mp3:'audio/mpeg',ogg:'audio/ogg',wav:'audio/wav',mp4:'video/mp4',webm:'video/webm',md:'text/markdown',txt:'text/plain',csv:'text/csv'})[e]||'application/octet-stream'}
 
-function getMime(ext) {
-  return ({
-    html:'text/html',htm:'text/html',css:'text/css',
-    js:'text/javascript',mjs:'text/javascript',
-    json:'application/json',svg:'image/svg+xml',xml:'application/xml',
-    png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',
-    gif:'image/gif',webp:'image/webp',ico:'image/x-icon',avif:'image/avif',
-    woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',
-    otf:'font/otf',eot:'application/vnd.ms-fontobject',
-    mp3:'audio/mpeg',ogg:'audio/ogg',wav:'audio/wav',
-    mp4:'video/mp4',webm:'video/webm',
-    md:'text/markdown',txt:'text/plain',csv:'text/csv',
-  })[ext] || 'application/octet-stream';
-}
-
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ESTADO
-// ════════════════════════════════════════════════════
-const S = {
-  files:      {},
-  name:       '',
-  activeFile: null,
-  currentHTML:null,
-  overrides:  {},
-  undoStack:  [],
-  mode:       'select',
-  dirHandle:  null,
-  fsApi:      typeof window.showDirectoryPicker === 'function',
-  swReady:    false,
-  swReg:      null,
-  SW_BASE:    '',   // e.g. https://user.github.io/EDITOR-VISUAL/visualcss/
-  iframeLoaded: false,
+// ═══════════════════════════════════════════
+const S={
+  files:{}, name:'',
+  activeFile:null, currentHTML:null,
+  overrides:{}, undoStack:[],
+  mode:'play',          // arranca siempre en modo jugar
+  dirHandle:null,
+  fsApi: typeof window.showDirectoryPicker==='function',
+  iframeLoaded:false,
 };
 
-// ════════════════════════════════════════════════════
-// SERVICE WORKER
-// ════════════════════════════════════════════════════
-async function initSW() {
-  if (!('serviceWorker' in navigator)) {
-    swBar('SW no disponible — usando modo inline', 'var(--am)'); return;
-  }
-  if (location.protocol === 'file:') {
-    swBar('file:// detectado — sube a GitHub Pages para servidor HTTP completo', 'var(--am)'); return;
-  }
-  try {
-    const swUrl = new URL('./sw.js', location.href).href;
-    // Scope = mismo directorio que el editor (ej: /EDITOR-VISUAL/)
-    // El SW puede interceptar todo lo que cargue el iframe bajo ese path
-    const scopeUrl = new URL('./', location.href).href;
-    const reg = await navigator.serviceWorker.register(swUrl, { scope: scopeUrl });
-    S.swReg = reg;
-    await navigator.serviceWorker.ready;
-    S.swReady = true;
-    // Base URL para servir archivos: /EDITOR-VISUAL/visualcss/
-    S.SW_BASE = new URL('./visualcss/', location.href).href;
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'SW_READY') swBar(`✓ Servidor HTTP activo — ${e.data.count} archivos`, 'var(--gr)', 3000);
-    });
-    swBar('Service Worker listo', 'var(--gr)', 2000);
-  } catch(err) {
-    swBar('SW error: ' + err.message, 'var(--am)');
-  }
-}
-
-function swBar(msg, color, hideMs) {
-  const bar = document.getElementById('sw-bar');
-  document.getElementById('sw-dot2').style.background = color || 'var(--am)';
-  document.getElementById('sw-txt2').textContent = msg;
-  bar.classList.add('show');
-  if (hideMs) setTimeout(() => bar.classList.remove('show'), hideMs);
-}
-
-function swDebug() {
-  if (!S.swReg?.active) { alert('SW no activo todavía'); return; }
-  const handler = e => {
-    if (e.data?.type !== 'FILE_LIST') return;
-    navigator.serviceWorker.removeEventListener('message', handler);
-    const keys = e.data.keys;
-    console.log('SW sample keys:', keys);
-    alert(`SW tiene ${e.data.total} archivos.\nPrimeras keys:\n${keys.join('\n')}`);
-  };
-  navigator.serviceWorker.addEventListener('message', handler);
-  S.swReg.active.postMessage({ type: 'LIST_FILES' });
-}
-
-// Enviar todos los archivos al SW
-// Keys bajo "visualcss/" para que queden bajo el scope del editor
-function pushToSW() {
-  if (!S.swReady || !S.swReg?.active) return;
-  const payload = {};
-  for (const [path, f] of Object.entries(S.files)) {
-    // "Version 9/blackjack/index.html" → "visualcss/blackjack/index.html"
-    const key = 'visualcss/' + stripRoot(path);
-    payload[key] = { content: f.content, mime: f.mime };
-  }
-  S.swReg.active.postMessage({ type: 'SET_FILES', files: payload });
-}
-
-function updateSW(path, content) {
-  if (!S.swReady || !S.swReg?.active) return;
-  S.swReg.active.postMessage({
-    type: 'UPDATE_FILE',
-    path: 'visualcss/' + stripRoot(path),
-    content,
-    mime: S.files[path]?.mime || getMime(path.split('.').pop())
-  });
-}
-
-function stripRoot(path) {
-  // "Version 9/blackjack/index.html" → "blackjack/index.html"
-  return path.startsWith(S.name + '/') ? path.slice(S.name.length + 1) : path;
-}
-
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // PROGRESS
-// ════════════════════════════════════════════════════
-const P = {
-  show(title) {
-    document.getElementById('load-title').textContent = title || 'Cargando…';
-    document.getElementById('load-file').textContent = '';
-    document.getElementById('load-stats').textContent = '';
-    document.getElementById('load-bar').style.width = '0%';
-    document.getElementById('load-bar').classList.remove('pulse');
-    document.getElementById('load-overlay').classList.add('show');
-  },
-  pulse(msg) {
-    document.getElementById('load-file').textContent = msg;
-    document.getElementById('load-bar').classList.add('pulse');
-  },
-  init(total) {
-    this._total = total; this._done = 0;
-    document.getElementById('load-bar').classList.remove('pulse');
-    document.getElementById('load-bar').style.width = '0%';
-    document.getElementById('load-stats').textContent = `0 / ${total} archivos`;
-  },
-  tick(name) {
-    this._done++;
-    const pct = this._total > 0 ? Math.round(this._done / this._total * 100) : 0;
-    document.getElementById('load-bar').style.width = pct + '%';
-    document.getElementById('load-file').textContent = name;
-    document.getElementById('load-stats').textContent = `${this._done} / ${this._total} archivos`;
-  },
-  hide() { document.getElementById('load-overlay').classList.remove('show'); },
+// ═══════════════════════════════════════════
+const P={
+  show(t){document.getElementById('load-title').textContent=t||'Cargando…';document.getElementById('load-file').textContent='';document.getElementById('load-stats').textContent='';document.getElementById('load-bar').style.width='0%';document.getElementById('load-bar').classList.remove('pulse');document.getElementById('load-overlay').classList.add('show')},
+  pulse(m){document.getElementById('load-file').textContent=m;document.getElementById('load-bar').classList.add('pulse')},
+  init(n){this._t=n;this._d=0;document.getElementById('load-bar').classList.remove('pulse');document.getElementById('load-bar').style.width='0%';document.getElementById('load-stats').textContent='0 / '+n},
+  tick(name){this._d++;const p=this._t>0?Math.round(this._d/this._t*100):0;document.getElementById('load-bar').style.width=p+'%';document.getElementById('load-file').textContent=name;document.getElementById('load-stats').textContent=this._d+' / '+this._t+' archivos'},
+  hide(){document.getElementById('load-overlay').classList.remove('show')}
 };
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // IMPORT UI
-// ════════════════════════════════════════════════════
-function initImportUI() {
-  const bottom = document.getElementById('tree-bottom');
-  bottom.innerHTML = `
-    ${S.fsApi ? `<button class="open-btn" onclick="openFolderFS()">
-      <span class="icon">📁</span>
-      <span style="font-weight:600">Abrir carpeta</span>
-      <span style="font-size:10px;color:var(--tx3)">guarda directo en disco</span>
-    </button>` : ''}
-    <label class="open-btn" style="cursor:pointer">
-      <span class="icon" style="font-size:18px">📂</span>
-      <span>${S.fsApi ? 'O selecciona archivos' : 'Seleccionar carpeta'}</span>
-      <input id="fi" type="file" webkitdirectory multiple style="display:none">
-    </label>`;
-  document.getElementById('fi').addEventListener('change', e => {
-    if (e.target.files.length) loadFileList(Array.from(e.target.files));
-  });
+// ═══════════════════════════════════════════
+function initImportUI(){
+  const b=document.getElementById('tree-bottom');
+  b.innerHTML=`
+    ${S.fsApi?`<button class="open-btn" onclick="openFolderFS()"><span class="icon">📁</span><span style="font-weight:600">Abrir carpeta</span><span style="font-size:10px;color:var(--tx3)">guarda directo en disco</span></button>`:''}
+    <label class="open-btn" style="cursor:pointer"><span class="icon" style="font-size:18px">📂</span><span>${S.fsApi?'O selecciona archivos':'Seleccionar carpeta'}</span><input id="fi" type="file" webkitdirectory multiple style="display:none"></label>`;
+  document.getElementById('fi').addEventListener('change',e=>{if(e.target.files.length)loadFileList(Array.from(e.target.files))});
 }
 
-// FS API — lee carpeta con fileHandles para guardar directo
-async function openFolderFS() {
-  try {
-    const dh = await window.showDirectoryPicker({ mode: 'readwrite' });
-    clearProject();
-    S.dirHandle = dh;
-    S.name = dh.name;
-    P.show(`Explorando "${dh.name}"…`);
-    P.pulse('Escaneando carpetas…');
-    const entries = [];
-    await scanDir(dh, dh.name, entries);
+async function openFolderFS(){
+  try{
+    const dh=await window.showDirectoryPicker({mode:'readwrite'});
+    clearProject(); S.dirHandle=dh; S.name=dh.name;
+    P.show(`Explorando "${dh.name}"…`); P.pulse('Escaneando…');
+    const entries=[];
+    await scanDir(dh,dh.name,entries);
     P.init(entries.length);
-    document.getElementById('load-title').textContent = `Cargando "${dh.name}"`;
-    for (const { name, handle, path, ext } of entries) {
-      P.tick(path.replace(S.name + '/', ''));
-      try {
-        const file = await handle.getFile();
-        if (TEXT_EXT.has(ext)) {
-          const content = await file.text();
-          S.files[path] = { content, mime: getMime(ext), type: TYPES[ext]||'other', ext, isText:true, modified:false, name, fileHandle:handle };
-        } else {
-          const ab = await file.arrayBuffer();
-          const blobUrl = URL.createObjectURL(new Blob([ab], { type: getMime(ext) }));
-          S.files[path] = { content: ab, mime: getMime(ext), type: TYPES[ext]||'other', ext, isText:false, modified:false, name, fileHandle:handle, blobUrl };
+    document.getElementById('load-title').textContent=`Cargando "${dh.name}"`;
+    for(const{name,handle,path,ext} of entries){
+      P.tick(path.replace(S.name+'/',''));
+      try{
+        const file=await handle.getFile();
+        if(TEXT_EXT.has(ext)){
+          const content=await file.text();
+          S.files[path]={content,mime:getMime(ext),type:TYPES[ext]||'other',ext,isText:true,modified:false,name,fileHandle:handle};
+        }else{
+          const ab=await file.arrayBuffer();
+          const blobUrl=URL.createObjectURL(new Blob([ab],{type:getMime(ext)}));
+          S.files[path]={content:ab,mime:getMime(ext),type:TYPES[ext]||'other',ext,isText:false,modified:false,name,fileHandle:handle,blobUrl};
         }
-      } catch(_) {}
+      }catch(_){}
     }
     P.hide();
-    document.getElementById('btn-save-all').style.display = 'flex';
-    document.getElementById('btn-export').style.display = 'none';
+    document.getElementById('btn-save-all').style.display='flex';
+    document.getElementById('btn-export').style.display='none';
     onLoaded();
-  } catch(e) {
-    P.hide();
-    if (e.name !== 'AbortError') setStatus('Error: ' + e.message, false);
+  }catch(e){P.hide();if(e.name!=='AbortError')setStatus('Error: '+e.message,false)}
+}
+
+async function scanDir(handle,base,out){
+  for await(const[name,entry] of handle.entries()){
+    if(name.startsWith('.')||name==='node_modules'||name==='__pycache__')continue;
+    const fp=base+'/'+name;
+    if(entry.kind==='directory')await scanDir(entry,fp,out);
+    else out.push({name,handle:entry,path:fp,ext:name.split('.').pop().toLowerCase()});
   }
 }
 
-async function scanDir(handle, base, out) {
-  for await (const [name, entry] of handle.entries()) {
-    if (name.startsWith('.') || name === 'node_modules' || name === '__pycache__') continue;
-    const fp = base + '/' + name;
-    if (entry.kind === 'directory') await scanDir(entry, fp, out);
-    else out.push({ name, handle: entry, path: fp, ext: name.split('.').pop().toLowerCase() });
-  }
-}
-
-// Fallback input
-function loadFileList(list) {
+function loadFileList(list){
   clearProject();
-  S.name = (list[0].webkitRelativePath || list[0].name).split('/')[0] || 'proyecto';
-  P.show(`Cargando "${S.name}"`);
-  P.init(list.length);
-  let pending = list.length;
-  const done = (name) => {
-    P.tick(name);
-    if (--pending > 0) return;
-    P.hide();
-    document.getElementById('btn-save-all').style.display = 'none';
-    document.getElementById('btn-export').style.display = 'flex';
-    onLoaded();
-  };
-  list.forEach(file => {
-    const rel = file.webkitRelativePath || file.name;
-    const ext = rel.split('.').pop().toLowerCase();
-    const short = rel.replace(S.name + '/', '');
-    if (TEXT_EXT.has(ext)) {
-      const r = new FileReader();
-      r.onload = ev => { S.files[rel] = { content: ev.target.result, mime: getMime(ext), type: TYPES[ext]||'other', ext, isText:true, modified:false, name: file.name }; done(short); };
-      r.onerror = () => done(short);
-      r.readAsText(file);
-    } else {
-      const r = new FileReader();
-      r.onload = ev => {
-        const blobUrl = URL.createObjectURL(new Blob([ev.target.result], { type: getMime(ext) }));
-        S.files[rel] = { content: ev.target.result, mime: getMime(ext), type: TYPES[ext]||'other', ext, isText:false, modified:false, name: file.name, blobUrl };
-        done(short);
-      };
-      r.onerror = () => done(short);
-      r.readAsArrayBuffer(file);
+  S.name=(list[0].webkitRelativePath||list[0].name).split('/')[0]||'proyecto';
+  P.show(`Cargando "${S.name}"`); P.init(list.length);
+  let pending=list.length;
+  const done=name=>{P.tick(name);if(--pending>0)return;P.hide();document.getElementById('btn-save-all').style.display='none';document.getElementById('btn-export').style.display='flex';onLoaded()};
+  list.forEach(file=>{
+    const rel=file.webkitRelativePath||file.name;
+    const ext=rel.split('.').pop().toLowerCase();
+    const short=rel.replace(S.name+'/','');
+    if(TEXT_EXT.has(ext)){
+      const r=new FileReader();
+      r.onload=ev=>{S.files[rel]={content:ev.target.result,mime:getMime(ext),type:TYPES[ext]||'other',ext,isText:true,modified:false,name:file.name};done(short)};
+      r.onerror=()=>done(short); r.readAsText(file);
+    }else{
+      const r=new FileReader();
+      r.onload=ev=>{
+        const blobUrl=URL.createObjectURL(new Blob([ev.target.result],{type:getMime(ext)}));
+        S.files[rel]={content:ev.target.result,mime:getMime(ext),type:TYPES[ext]||'other',ext,isText:false,modified:false,name:file.name,blobUrl};
+        done(short)};
+      r.onerror=()=>done(short); r.readAsArrayBuffer(file);
     }
   });
 }
 
-function clearProject() {
-  Object.values(S.files).forEach(f => f.blobUrl && URL.revokeObjectURL(f.blobUrl));
-  S.files = {}; S.overrides = {}; S.undoStack = [];
-  S.activeFile = null; S.currentHTML = null; S.dirHandle = null; S.iframeLoaded = false;
-  // Limpiar iframe
-  const fr = document.getElementById('preview-iframe');
-  fr.style.display = 'none';
-  fr.src = 'about:blank';
-  document.getElementById('no-prev').style.display = 'flex';
+function clearProject(){
+  Object.values(S.files).forEach(f=>f.blobUrl&&URL.revokeObjectURL(f.blobUrl));
+  S.files={}; S.overrides={}; S.undoStack=[];
+  S.activeFile=null; S.currentHTML=null; S.dirHandle=null; S.iframeLoaded=false;
+  const fr=document.getElementById('preview-iframe');
+  fr.style.display='none'; fr.removeAttribute('src'); fr.srcdoc='';
+  document.getElementById('no-prev').style.display='flex';
 }
 
-// Drag & drop
-document.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropover').classList.add('show'); });
-document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.getElementById('dropover').classList.remove('show'); });
-document.addEventListener('drop', e => {
-  e.preventDefault();
-  document.getElementById('dropover').classList.remove('show');
-  const files = Array.from(e.dataTransfer.files);
-  if (files.length) loadFileList(files);
-});
+document.addEventListener('dragover',e=>{e.preventDefault();document.getElementById('dropover').classList.add('show')});
+document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.getElementById('dropover').classList.remove('show')});
+document.addEventListener('drop',e=>{e.preventDefault();document.getElementById('dropover').classList.remove('show');const f=Array.from(e.dataTransfer.files);if(f.length)loadFileList(f)});
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ON LOADED
-// ════════════════════════════════════════════════════
-function onLoaded() {
-  if (S.swReady) pushToSW();
+// ═══════════════════════════════════════════
+function onLoaded(){
   buildTree(); renderTree(); renderPageBar(); renderCodeTabs();
-  document.getElementById('tree-hdr-label').style.display = 'none';
-  const pn = document.getElementById('proj-name');
-  pn.style.display = 'block';
-  pn.textContent = S.name;
-  // Auto-abrir primer index.html
-  const htmls = Object.keys(S.files).filter(p => ['html','htm'].includes(S.files[p].ext)).sort();
-  const idx = htmls.find(p => /\/index\.(html|htm)$/i.test(p)) || htmls[0];
-  if (idx) loadPage(idx);
-  setStatus(`✓ ${Object.keys(S.files).length} archivos — ${S.name}`, true);
+  document.getElementById('tree-hdr-label').style.display='none';
+  document.getElementById('proj-name').style.display='block';
+  document.getElementById('proj-name').textContent=S.name;
+  // Auto-abrir index.html raíz del proyecto (un solo nivel bajo el root)
+  const htmls=Object.keys(S.files).filter(p=>['html','htm'].includes(S.files[p].ext)).sort();
+  const rootIdx=htmls.find(p=>{const rel=p.replace(S.name+'/','');return rel==='index.html'||rel==='index.htm'});
+  const first=rootIdx||htmls[0];
+  if(first)loadPage(first);
+  setStatus(`✓ ${Object.keys(S.files).length} archivos — ${S.name}`,true);
 }
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ÁRBOL
-// ════════════════════════════════════════════════════
-const expanded = new Set();
-
-function buildTree() {
-  S.tree = {};
-  Object.keys(S.files).sort().forEach(path => {
-    const parts = path.split('/');
-    let node = S.tree;
-    parts.forEach((part, i) => {
-      if (i === parts.length - 1) node[part] = { _f: path };
-      else { if (!node[part]) node[part] = {}; node = node[part]; }
+// ═══════════════════════════════════════════
+const expanded=new Set();
+function buildTree(){
+  S.tree={};
+  Object.keys(S.files).sort().forEach(path=>{
+    const parts=path.split('/');
+    let node=S.tree;
+    parts.forEach((part,i)=>{
+      if(i===parts.length-1)node[part]={_f:path};
+      else{if(!node[part])node[part]={};node=node[part]}
     });
   });
 }
-
-function renderTree() {
-  const sc = document.getElementById('tree-scroll');
-  sc.innerHTML = '';
-  renderNode(S.tree, sc, 0);
-}
-
-function renderNode(node, container, depth) {
-  Object.keys(node).sort((a,b) => {
-    const ad = !node[a]._f, bd = !node[b]._f;
-    return ad !== bd ? (ad?-1:1) : a.localeCompare(b);
-  }).forEach(key => {
-    const val = node[key];
-    if (val._f) {
-      const path = val._f, f = S.files[path];
-      const icons = {html:'◻',css:'◈',js:'◆',img:'🖼',font:'Aa',json:'{}',text:'≡',audio:'♪',video:'▶',other:'○'};
-      const el = document.createElement('div');
-      el.className = 'tn' + (path === S.activeFile ? ' sel' : '');
-      el.style.paddingLeft = (depth * 14 + 4) + 'px';
-      el.innerHTML = `<span class="ta" style="visibility:hidden">▶</span><span class="ti">${icons[f.type]||'○'}</span><span class="tl${path===S.activeFile?' sel':''}">${key}</span>${f.modified?'<span class="tbadge t-mod">●</span>':''}<span class="tbadge t-${f.type||'other'}">${f.ext}</span>`;
-      el.onclick = () => openFile(path);
+function renderTree(){const sc=document.getElementById('tree-scroll');sc.innerHTML='';renderNode(S.tree,sc,0)}
+function renderNode(node,container,depth){
+  Object.keys(node).sort((a,b)=>{const ad=!node[a]._f,bd=!node[b]._f;return ad!==bd?(ad?-1:1):a.localeCompare(b)}).forEach(key=>{
+    const val=node[key];
+    if(val._f){
+      const path=val._f,f=S.files[path];
+      const icons={html:'◻',css:'◈',js:'◆',img:'🖼',font:'Aa',json:'{}',text:'≡',audio:'♪',video:'▶',other:'○'};
+      const el=document.createElement('div');
+      el.className='tn'+(path===S.activeFile?' sel':'');
+      el.style.paddingLeft=(depth*14+4)+'px';
+      el.innerHTML=`<span class="ta" style="visibility:hidden">▶</span><span class="ti">${icons[f.type]||'○'}</span><span class="tl${path===S.activeFile?' sel':''}">${key}</span>${f.modified?'<span class="tbadge t-mod">●</span>':''}<span class="tbadge t-${f.type||'other'}">${f.ext}</span>`;
+      el.onclick=()=>openFile(path);
       container.appendChild(el);
-    } else {
-      const id = 'd' + depth + key;
-      const open = expanded.has(id) || depth === 0;
-      if (depth === 0) expanded.add(id);
-      const el = document.createElement('div');
-      el.className = 'tn';
-      el.style.paddingLeft = (depth * 14 + 4) + 'px';
-      el.innerHTML = `<span class="ta ${open?'op':''}">▶</span><span class="ti">📁</span><span class="tl">${key}/</span>`;
-      el.onclick = () => { open ? expanded.delete(id) : expanded.add(id); renderTree(); };
+    }else{
+      const id='d'+depth+key;
+      const open=expanded.has(id)||depth===0;
+      if(depth===0)expanded.add(id);
+      const el=document.createElement('div');
+      el.className='tn';
+      el.style.paddingLeft=(depth*14+4)+'px';
+      el.innerHTML=`<span class="ta ${open?'op':''}">▶</span><span class="ti">📁</span><span class="tl">${key}/</span>`;
+      el.onclick=()=>{open?expanded.delete(id):expanded.add(id);renderTree()};
       container.appendChild(el);
-      if (open) { const ch = document.createElement('div'); renderNode(val, ch, depth+1); container.appendChild(ch); }
+      if(open){const ch=document.createElement('div');renderNode(val,ch,depth+1);container.appendChild(ch)}
     }
   });
 }
 
-function renderPageBar() {
-  const bar = document.getElementById('page-bar');
-  const htmls = Object.keys(S.files).filter(p => ['html','htm'].includes(S.files[p].ext)).sort();
-  bar.style.display = htmls.length ? 'flex' : 'none';
-  bar.innerHTML = '<span style="font-size:11px;color:var(--tx3);flex-shrink:0;margin-right:4px">Páginas:</span>';
-  htmls.forEach(path => {
-    const t = document.createElement('div');
-    t.className = 'ptab' + (path === S.currentHTML ? ' on' : '');
-    t.textContent = path.split('/').pop(); t.title = path;
-    t.onclick = () => loadPage(path);
+function renderPageBar(){
+  const bar=document.getElementById('page-bar');
+  const htmls=Object.keys(S.files).filter(p=>['html','htm'].includes(S.files[p].ext)).sort();
+  bar.style.display=htmls.length?'flex':'none';
+  bar.innerHTML='<span style="font-size:11px;color:var(--tx3);flex-shrink:0;margin-right:4px">Páginas:</span>';
+  htmls.forEach(path=>{
+    const t=document.createElement('div');
+    t.className='ptab'+(path===S.currentHTML?' on':'');
+    // Mostrar path relativo sin el nombre del proyecto para distinguir
+    const rel=path.replace(S.name+'/','');
+    t.textContent=rel; t.title=path;
+    t.onclick=()=>loadPage(path);
     bar.appendChild(t);
   });
 }
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ABRIR ARCHIVO / PÁGINA
-// ════════════════════════════════════════════════════
-function openFile(path) {
-  const f = S.files[path];
-  if (!f) return;
-  S.activeFile = path;
-  if (f.isText && EDIT_EXT.has(f.ext)) {
-    document.getElementById('code-ed').value = f.content;
+// ═══════════════════════════════════════════
+function openFile(path){
+  const f=S.files[path]; if(!f)return;
+  S.activeFile=path;
+  if(f.isText&&EDIT_EXT.has(f.ext)){
+    document.getElementById('code-ed').value=f.content;
     document.getElementById('btn-save-file').classList.add('show');
     renderCodeTabs();
   }
-  if (f.type === 'html') loadPage(path);
+  if(f.type==='html')loadPage(path);
   renderTree();
 }
 
-// Carga una página en el iframe SIEMPRE desde memoria (srcdoc)
-// Nunca carga URLs de GitHub Pages — todo viene de S.files
-function loadPage(path) {
-  const f = S.files[path];
-  if (!f?.isText) return;
-  S.currentHTML = path;
-  document.getElementById('url-bar').value = path;
-  document.getElementById('no-prev').style.display = 'none';
-  const fr = document.getElementById('preview-iframe');
-  fr.style.display = 'block';
-  S.iframeLoaded = false;
+// ═══════════════════════════════════════════
+// CARGAR PÁGINA — siempre desde memoria
+// ═══════════════════════════════════════════
+function loadPage(path){
+  const f=S.files[path]; if(!f?.isText)return;
+  S.currentHTML=path;
+  document.getElementById('url-bar').value=path;
+  document.getElementById('no-prev').style.display='none';
+  const fr=document.getElementById('preview-iframe');
+  fr.style.display='block';
+  S.iframeLoaded=false;
   fr.removeAttribute('src');
-  fr.srcdoc = buildDoc(path);
-  fr.onload = () => {
-    S.iframeLoaded = true;
-    applyCurrentMode();
+  fr.srcdoc=buildDoc(path);   // SIEMPRE desde memoria, sin bridge
+  fr.onload=()=>{
+    S.iframeLoaded=true;
+    // Si estamos en modo editar, inyectar bridge ahora
+    if(S.mode!=='play')injectBridge();
   };
   renderPageBar(); renderTree();
 }
 
-function reloadPage() {
-  if (S.currentHTML) loadPage(S.currentHTML);
+function reloadPage(){if(S.currentHTML)loadPage(S.currentHTML)}
+
+// ═══════════════════════════════════════════
+// BUILD DOC — construye HTML completo desde S.files
+// ═══════════════════════════════════════════
+function buildDoc(htmlPath){
+  const f=S.files[htmlPath]; if(!f?.isText)return'';
+  const dir=htmlPath.split('/').slice(0,-1).join('/');
+  let html=f.content;
+
+  // Inline <link rel="stylesheet"> — soporta href="..." y href='...' y href=...
+  html=html.replace(/<link\s([^>]*?)>/gi,(tag,attrs)=>{
+    if(!/rel=["']?stylesheet/i.test(attrs))return tag;
+    const m=attrs.match(/href=["']?([^"'\s>]+)["']?/i);
+    if(!m)return tag;
+    const href=m[1].split('?')[0];
+    if(href.startsWith('http')||href.startsWith('//'))return tag;
+    const cf=findFile(resolveRel(dir,href));
+    if(!cf?.isText)return tag;
+    const css=inlineCSS(cf.content,resolveRel(dir,href).split('/').slice(0,-1).join('/'));
+    return`<style>\n${css}\n</style>`;
+  });
+
+  // Inline <script src="...">
+  html=html.replace(/<script([^>]*)src=["']?([^"'\s>]+)["']?([^>]*)><\/script>/gi,(_,pre,src,post)=>{
+    const s=src.split('?')[0];
+    if(s.startsWith('http')||s.startsWith('//'))return _;
+    const jf=findFile(resolveRel(dir,s));
+    if(!jf?.isText)return _;
+    const attrs=(pre+post).replace(/\btype=["']module["']/gi,'');
+    return`<script${attrs}>\n${jf.content}\n<\/script>`;
+  });
+
+  // Reemplazar assets con blob URLs
+  html=html.replace(/(\b(?:src|href)=["'])([^"'#?]+)(["'])/gi,(_,a,p,b)=>{
+    if(p.startsWith('http')||p.startsWith('//')||p.startsWith('data:'))return _;
+    const af=findFile(resolveRel(dir,p));
+    return af?.blobUrl?a+af.blobUrl+b:_;
+  });
+
+  // Inyectar override CSS (sin bridge — se inyecta por DOM cuando se pausa)
+  const css=buildOverrideCSS();
+  const inj=`<style id="__ve_style__">${css}</style>`;
+  if(html.includes('</body>'))return html.replace('</body>',inj+'\n</body>');
+  if(html.includes('</html>'))return html.replace('</html>',inj+'\n</html>');
+  return html+inj;
 }
 
-// Construye el documento completo con CSS/JS inlineados y assets como blob URLs
-// Esto no necesita servidor — todo viene de S.files en memoria
-function buildDoc(htmlPath) {
-  const f = S.files[htmlPath];
-  if (!f?.isText) return '';
-  const dir = htmlPath.split('/').slice(0, -1).join('/');
-  let html = f.content;
-
-  // 1. Inline <link rel="stylesheet" href="...">
-  html = html.replace(/<link([^>]+)>/gi, tag => {
-    if (!/rel=["']stylesheet["']/i.test(tag)) return tag;
-    const m = tag.match(/href=["']([^"']+)["']/i);
-    if (!m) return tag;
-    const href = m[1];
-    if (href.startsWith('http') || href.startsWith('//')) return tag; // externos: dejar
-    const cf = findFile(resolveRel(dir, href));
-    if (!cf?.isText) return tag;
-    const css = inlineCSS(cf.content, resolveRel(dir, href).split('/').slice(0, -1).join('/'));
-    return `<style>\n${css}\n</style>`;
+function inlineCSS(css,cssDir){
+  css=css.replace(/@import\s+(?:url\()?["']([^"')]+)["']\)?[^;]*;/gi,(m,p)=>{
+    if(p.startsWith('http')||p.startsWith('//'))return m;
+    const cf=findFile(resolveRel(cssDir,p));
+    if(!cf?.isText)return m;
+    return inlineCSS(cf.content,resolveRel(cssDir,p).split('/').slice(0,-1).join('/'));
   });
-
-  // 2. Inline <script src="...">
-  html = html.replace(/<script([^>]*)src=["']([^"']+)["']([^>]*)><\/script>/gi, (_, pre, src, post) => {
-    if (src.startsWith('http') || src.startsWith('//')) return _; // externos: dejar
-    const jf = findFile(resolveRel(dir, src));
-    if (!jf?.isText) return _;
-    // quitar type="module" — no funciona en srcdoc sin servidor
-    const attrs = (pre + post).replace(/\btype=["']module["']/gi, '');
-    return `<script${attrs}>\n${jf.content}\n<\/script>`;
-  });
-
-  // 3. Reemplazar src/href de assets (imágenes, fuentes) con blob URLs
-  html = html.replace(/(\b(?:src|href)=["'])([^"'#?]+)(["'])/gi, (_, a, p, b) => {
-    if (p.startsWith('http') || p.startsWith('//') || p.startsWith('data:')) return _;
-    const af = findFile(resolveRel(dir, p));
-    if (af?.blobUrl) return a + af.blobUrl + b;
-    return _;
-  });
-
-  // 4. Inyectar override CSS (sin bridge — se inyecta por DOM cuando se necesita)
-  const overrideCSS = buildOverrideCSS();
-  const styleTag = `<style id="__ve_style__">${overrideCSS}</style>`;
-
-  if (html.includes('</body>')) return html.replace('</body>', styleTag + '\n</body>');
-  if (html.includes('</html>')) return html.replace('</html>', styleTag + '\n</html>');
-  return html + styleTag;
-}
-
-// Inline @import y url() dentro de CSS
-function inlineCSS(css, cssDir) {
-  // @import
-  css = css.replace(/@import\s+(?:url\()?["']([^"')]+)["']\)?[^;]*;/gi, (m, p) => {
-    if (p.startsWith('http') || p.startsWith('//')) return m;
-    const cf = findFile(resolveRel(cssDir, p));
-    if (!cf?.isText) return m;
-    return inlineCSS(cf.content, resolveRel(cssDir, p).split('/').slice(0, -1).join('/'));
-  });
-  // url()
-  css = css.replace(/url\(["']?([^"')#?\s]+)["']?\)/gi, (m, u) => {
-    if (u.startsWith('http') || u.startsWith('data:') || u.startsWith('//')) return m;
-    const af = findFile(resolveRel(cssDir, u));
-    if (af?.blobUrl) return `url("${af.blobUrl}")`;
-    return m;
+  css=css.replace(/url\(["']?([^"')#?\s]+)["']?\)/gi,(m,u)=>{
+    if(u.startsWith('http')||u.startsWith('data:')||u.startsWith('//'))return m;
+    const af=findFile(resolveRel(cssDir,u));
+    return af?.blobUrl?`url("${af.blobUrl}")`:m;
   });
   return css;
 }
 
-// Buscar un archivo en S.files por path completo o parcial
-function findFile(path) {
-  // 1. Exacto con root
-  if (S.files[path]) return S.files[path];
-  // 2. Con prefijo del proyecto
-  const withRoot = S.name + '/' + path;
-  if (S.files[withRoot]) return S.files[withRoot];
-  // 3. Sufijo: cualquier key que termine en /path o sea igual
-  const k = Object.keys(S.files).find(k => k === path || k.endsWith('/' + path));
-  return k ? S.files[k] : null;
+function findFile(path){
+  if(S.files[path])return S.files[path];
+  const wp=S.name+'/'+path;if(S.files[wp])return S.files[wp];
+  const k=Object.keys(S.files).find(k=>k===path||k.endsWith('/'+path));
+  return k?S.files[k]:null;
 }
 
-// Resolver path relativo
-function resolveRel(base, rel) {
-  const parts = ((base ? base + '/' : '') + rel).split('/');
-  const out = [];
-  for (const p of parts) {
-    if (p === '..') out.pop();
-    else if (p && p !== '.') out.push(p);
-  }
+function resolveRel(base,rel){
+  const parts=((base?base+'/':'')+rel).split('/'),out=[];
+  for(const p of parts){if(p==='..')out.pop();else if(p&&p!=='.')out.push(p)}
   return out.join('/');
 }
 
-// ════════════════════════════════════════════════════
-// MODOS — SIN RECARGAR EL IFRAME
-// ════════════════════════════════════════════════════
-// El iframe carga UNA VEZ. El modo se cambia:
-//  - play:   quitar bridge, quitar overlay bloqueador
-//  - edit:   inyectar bridge, poner overlay bloqueador
-//
-// El bridge se inyecta vía postMessage, no recargando el iframe.
-// El overlay transparente sobre el iframe bloquea los clics del juego
-// en modo editar, redirigiendo los eventos al inspector.
+// ═══════════════════════════════════════════
+// MODOS
+// play    → juego funciona normal, sin bridge
+// select  → bridge activo, clic selecciona elemento
+// drag    → bridge activo, arrastra elemento
+// resize  → bridge activo, edita tamaño
+// ═══════════════════════════════════════════
+function setMode(mode){
+  const prev=S.mode;
+  S.mode=mode;
 
-function setMode(mode) {
-  S.mode = mode;
-  ['t-play','t-sel','t-drag','t-rsz'].forEach(id => document.getElementById(id).classList.remove('on'));
-  const map = { play:'t-play', select:'t-sel', drag:'t-drag', resize:'t-rsz' };
-  if (map[mode]) document.getElementById(map[mode]).classList.add('on');
-  document.body.className = mode === 'play' ? 'play-active' : 'edit-active';
-  document.getElementById('play-banner').classList.toggle('show', mode === 'play');
+  // Actualizar botones
+  ['t-play','t-sel','t-drag','t-rsz'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  ({play:'t-play',select:'t-sel',drag:'t-drag',resize:'t-rsz'})[mode] &&
+    document.getElementById(({play:'t-play',select:'t-sel',drag:'t-drag',resize:'t-rsz'})[mode]).classList.add('on');
 
-  if (!S.iframeLoaded || !S.currentHTML) return;
+  document.body.className=mode==='play'?'play-active':'';
+  document.getElementById('play-banner').classList.toggle('show',mode==='play');
 
-  const fr = document.getElementById('preview-iframe');
+  if(!S.iframeLoaded)return;
 
-  if (mode === 'play') {
-    // NUNCA recargar — quitar bridge del DOM del iframe, estado del juego se conserva
-    document.getElementById('edit-overlay').classList.remove('show');
-    try {
-      const doc = fr.contentDocument;
-      if (doc) {
-        const br = doc.getElementById('__ve_bridge__');
-        if (br) br.remove();
-        doc.querySelectorAll('[data-ve-outlined]').forEach(el => {
-          el.style.outline = '';
-          el.removeAttribute('data-ve-outlined');
-        });
-      }
-    } catch(_) {}
-    setStatus('▶ Modo Jugar — estado conservado', true);
-
-  } else {
-    // NUNCA recargar — inyectar bridge en el DOM del iframe
-    document.getElementById('edit-overlay').classList.add('show');
-    try {
-      const doc = fr.contentDocument;
-      if (!doc) { setStatus('iframe no accesible', false); return; }
-
-      // Si bridge ya existe, solo cambiar herramienta
-      if (doc.getElementById('__ve_bridge__')) {
-        sendToFrame({ type: 'SET_TOOL', tool: mode });
-        setStatus('Modo editar — ' + mode, true);
-        return;
-      }
-
-      // Inyectar bridge como nuevo script en el body del iframe
-      const sc = doc.createElement('script');
-      sc.id = '__ve_bridge__';
-      sc.textContent = getBridgeCode();
-      (doc.body || doc.documentElement).appendChild(sc);
-
-      // Inyectar / actualizar estilo de overrides
-      let stel = doc.getElementById('__ve_style__');
-      if (!stel) {
-        stel = doc.createElement('style');
-        stel.id = '__ve_style__';
-        (doc.head || doc.documentElement).appendChild(stel);
-      }
-      stel.textContent = buildOverrideCSS();
-
-    } catch(e) {
-      console.warn('No se pudo inyectar bridge:', e);
+  if(mode==='play'){
+    // Quitar bridge del DOM — el juego sigue sin reiniciarse
+    removeBridge();
+  }else{
+    // Inyectar bridge si no está, o cambiar herramienta si ya está
+    if(bridgeExists()){
+      sendToFrame({type:'SET_TOOL',tool:mode});
+    }else{
+      injectBridge();
     }
-    setStatus('Modo editar — ' + mode, true);
   }
+  setStatus(mode==='play'?'▶ Modo Jugar':'Modo editar — '+mode,true);
 }
 
-// Llamado cuando el iframe termina su carga inicial
-// El iframe carga SIEMPRE en modo jugar (srcdoc sin bridge)
-// Si el usuario ya estaba en modo editar, inyectamos el bridge
-function applyCurrentMode() {
-  if (S.mode !== 'play') {
-    // Pequeño delay para que el DOM del iframe esté listo
-    setTimeout(() => setMode(S.mode), 50);
-  }
+function bridgeExists(){
+  try{return!!document.getElementById('preview-iframe').contentDocument?.getElementById('__ve_bridge__')}catch(_){return false}
 }
 
-
-function sendToFrame(msg) {
-  const fr = document.getElementById('preview-iframe');
-  if (fr.contentWindow) fr.contentWindow.postMessage(msg, '*');
+function injectBridge(){
+  try{
+    const doc=document.getElementById('preview-iframe').contentDocument;
+    if(!doc)return;
+    // Quitar bridge anterior si existe
+    const old=doc.getElementById('__ve_bridge__');
+    if(old)old.remove();
+    // Crear e inyectar el script
+    const sc=doc.createElement('script');
+    sc.id='__ve_bridge__';
+    sc.textContent=getBridgeCode(S.mode);
+    (doc.body||doc.documentElement).appendChild(sc);
+    // Actualizar estilos de override
+    updateOverrideStyle();
+  }catch(e){console.warn('injectBridge:',e)}
 }
 
-// ════════════════════════════════════════════════════
-// BRIDGE — código que se inyecta en el iframe
-// ════════════════════════════════════════════════════
-function getBridgeCode() {
-  return `
-(function(){
-  if (window.__ve_active__) { window.__ve_setTool && window.__ve_setTool('${S.mode}'); return; }
-  window.__ve_active__ = true;
-  let tool = '${S.mode}', sel = null, drag = null;
-
-  window.__ve_setTool = function(t) {
-    tool = t;
-    document.body.style.cursor = t === 'drag' ? 'grab' : '';
-  };
-
-  function uq(el) {
-    if (el.id) return '#' + CSS.escape(el.id);
-    let path = '', cur = el;
-    while (cur && cur !== document.body) {
-      let s = cur.tagName.toLowerCase();
-      const cls = Array.from(cur.classList).filter(c => !c.startsWith('__ve')).slice(0,2);
-      if (cls.length) s += '.' + cls.join('.');
-      path = s + (path ? '>' + path : '');
-      cur = cur.parentElement;
-    }
-    return path || el.tagName.toLowerCase();
-  }
-
-  function hi(el, on) {
-    if (!el) return;
-    el.style.outline = on ? '2px solid #6366f1' : '';
-    el.style.outlineOffset = on ? '1px' : '';
-  }
-
-  function pick(el) {
-    hi(sel, false); sel = el; hi(sel, true);
-    const cs = window.getComputedStyle(el), rc = el.getBoundingClientRect();
-    parent.postMessage({ type:'SEL',
-      tag: el.tagName.toLowerCase(), id: el.id||'',
-      cls: Array.from(el.classList).filter(c=>!c.startsWith('__ve')).join(' '),
-      sel: uq(el),
-      s: {
-        width:  el.style.width  || Math.round(rc.width)+'px',
-        height: el.style.height || Math.round(rc.height)+'px',
-        color: cs.color, bg: cs.backgroundColor,
-        fontSize: cs.fontSize, fontWeight: cs.fontWeight,
-        fontFamily: cs.fontFamily.split(',')[0].replace(/['"]/g,'').trim(),
-        lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
-        padding:  el.style.padding  || cs.padding,
-        margin:   el.style.margin   || cs.margin,
-        borderRadius: el.style.borderRadius || cs.borderRadius,
-        border: el.style.border || cs.border,
-        display: cs.display, flexDir: cs.flexDirection,
-        justifyContent: cs.justifyContent, alignItems: cs.alignItems,
-        gap: el.style.gap || cs.gap,
-        opacity: el.style.opacity || cs.opacity,
-        top: el.style.top||'', left: el.style.left||'',
-        position: cs.position,
-        boxShadow: el.style.boxShadow || cs.boxShadow,
-        zIndex: el.style.zIndex || cs.zIndex,
-        textAlign: cs.textAlign,
-        overflow: el.style.overflow || cs.overflow,
-      }
-    }, '*');
-  }
-
-  // Hover
-  document.addEventListener('mouseover', e => {
-    const prev = document.querySelector('.__ve_h');
-    if (prev && prev !== sel) { prev.style.outline=''; prev.classList.remove('__ve_h'); }
-    if (e.target !== document.body && e.target !== sel && tool !== 'play') {
-      e.target.style.outline = '1px dashed rgba(99,102,241,.4)';
-      e.target.classList.add('__ve_h');
-    }
-  });
-  document.addEventListener('mouseout', e => {
-    if (e.target.classList?.contains('__ve_h') && e.target !== sel) {
-      e.target.style.outline=''; e.target.classList.remove('__ve_h');
-    }
-  });
-
-  // Click select / resize
-  document.addEventListener('click', e => {
-    if (tool !== 'select' && tool !== 'resize') return;
-    if (e.target === document.body || e.target === document.documentElement) return;
-    e.preventDefault(); e.stopPropagation();
-    pick(e.target);
-  }, true);
-
-  // Drag
-  document.addEventListener('mousedown', e => {
-    if (tool !== 'drag') return;
-    if (e.target === document.body || e.target === document.documentElement) return;
-    e.preventDefault();
-    pick(e.target);
-    const cs = window.getComputedStyle(e.target);
-    if (cs.position !== 'absolute' && cs.position !== 'fixed') e.target.style.position = 'relative';
-    drag = { el:e.target, sx:e.clientX, sy:e.clientY,
-      ot: parseFloat(e.target.style.top)||0,
-      ol: parseFloat(e.target.style.left)||0,
-      sel: uq(e.target) };
-    document.body.style.cursor = 'grabbing';
-  });
-  document.addEventListener('mousemove', e => {
-    if (!drag) return;
-    const top  = Math.round(drag.ot + (e.clientY - drag.sy));
-    const left = Math.round(drag.ol + (e.clientX - drag.sx));
-    drag.el.style.top  = top+'px';
-    drag.el.style.left = left+'px';
-    parent.postMessage({ type:'DM', sel:drag.sel, top:top+'px', left:left+'px' }, '*');
-  });
-  document.addEventListener('mouseup', () => {
-    if (!drag) return;
-    parent.postMessage({ type:'DE', sel:drag.sel, top:drag.el.style.top, left:drag.el.style.left, pos:drag.el.style.position }, '*');
-    drag = null; document.body.style.cursor = '';
-  });
-
-  // Mensajes del editor
-  window.addEventListener('message', e => {
-    const d = e.data; if (!d) return;
-    if (d.type === 'SET_TOOL') { tool = d.tool; document.body.style.cursor = tool==='drag'?'grab':''; }
-    if (d.type === 'BRIDGE_OFF') { tool = 'play'; document.body.style.cursor = ''; hi(sel,false); sel=null; }
-    if (d.type === 'APPLY' && sel) {
-      const camel = d.css.replace(/-([a-z])/g, (_,c) => c.toUpperCase());
-      sel.style[camel] = d.val;
-      parent.postMessage({ type:'APPLIED', sel:uq(sel), css:d.css, val:d.val }, '*');
-    }
-  });
-})();
-  `;
+function removeBridge(){
+  try{
+    const doc=document.getElementById('preview-iframe').contentDocument;
+    if(!doc)return;
+    const br=doc.getElementById('__ve_bridge__');
+    if(br)br.remove();
+    // Limpiar outlines del inspector
+    doc.querySelectorAll('.__ve_h,.__ve_sel').forEach(el=>{
+      el.style.outline='';el.style.outlineOffset='';
+      el.classList.remove('__ve_h','__ve_sel');
+    });
+    // Marcar bridge como inactivo para que se pueda reinyectar
+    if(doc.defaultView)doc.defaultView.__ve_active__=false;
+  }catch(_){}
 }
 
-// El overlay transparente sobre el iframe intercepta clics en modo editar
-// y los redirige al inspector
-document.getElementById('edit-overlay').addEventListener('click', e => {
-  if (S.mode === 'play') return;
-  // Obtener posición en el iframe
-  const fr = document.getElementById('preview-iframe');
-  const rect = fr.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  // Pedir al iframe que seleccione el elemento en esa posición
-  sendToFrame({ type: 'PICK_AT', x, y });
+function sendToFrame(msg){
+  const fr=document.getElementById('preview-iframe');
+  if(fr.contentWindow)fr.contentWindow.postMessage(msg,'*');
+}
+
+// ═══════════════════════════════════════════
+// BRIDGE — inyectado en el iframe al pausar
+// ═══════════════════════════════════════════
+function getBridgeCode(initialTool){
+  return`(function(){
+  if(window.__ve_active__){if(window.__ve_setTool)window.__ve_setTool('${initialTool||'select'}');return}
+  window.__ve_active__=true;
+  let tool='${initialTool||'select'}',sel=null,drag=null;
+  window.__ve_setTool=function(t){tool=t;document.body.style.cursor=t==='drag'?'grab':''};
+
+  function uq(el){
+    if(el.id)return'#'+CSS.escape(el.id);
+    let path='',cur=el;
+    while(cur&&cur!==document.body){
+      let s=cur.tagName.toLowerCase();
+      const cls=Array.from(cur.classList).filter(c=>!c.startsWith('__ve')).slice(0,2);
+      if(cls.length)s+='.'+cls.join('.');
+      path=s+(path?'>'+path:'');cur=cur.parentElement;
+    }
+    return path||el.tagName.toLowerCase();
+  }
+  function hi(el,on){if(!el)return;el.style.outline=on?'2px solid #6366f1':'';el.style.outlineOffset=on?'1px':''}
+  function pick(el){
+    hi(sel,false);sel=el;hi(sel,true);
+    el.classList.add('__ve_sel');
+    const cs=window.getComputedStyle(el),rc=el.getBoundingClientRect();
+    parent.postMessage({type:'SEL',tag:el.tagName.toLowerCase(),id:el.id||'',
+      cls:Array.from(el.classList).filter(c=>!c.startsWith('__ve')).join(' '),sel:uq(el),
+      s:{width:el.style.width||Math.round(rc.width)+'px',height:el.style.height||Math.round(rc.height)+'px',
+        color:cs.color,bg:cs.backgroundColor,fontSize:cs.fontSize,fontWeight:cs.fontWeight,
+        fontFamily:cs.fontFamily.split(',')[0].replace(/['"]/g,'').trim(),
+        lineHeight:cs.lineHeight,letterSpacing:cs.letterSpacing,
+        padding:el.style.padding||cs.padding,margin:el.style.margin||cs.margin,
+        borderRadius:el.style.borderRadius||cs.borderRadius,border:el.style.border||cs.border,
+        display:cs.display,flexDir:cs.flexDirection,justifyContent:cs.justifyContent,
+        alignItems:cs.alignItems,gap:el.style.gap||cs.gap,opacity:el.style.opacity||cs.opacity,
+        top:el.style.top||'',left:el.style.left||'',position:cs.position,
+        boxShadow:el.style.boxShadow||cs.boxShadow,zIndex:el.style.zIndex||cs.zIndex,
+        textAlign:cs.textAlign,overflow:el.style.overflow||cs.overflow}},'*');
+  }
+  document.addEventListener('mouseover',e=>{
+    const prev=document.querySelector('.__ve_h');
+    if(prev&&prev!==sel){prev.style.outline='';prev.classList.remove('__ve_h')}
+    if(e.target!==document.body&&e.target!==sel){
+      e.target.style.outline='1px dashed rgba(99,102,241,.45)';e.target.classList.add('__ve_h')}
+  });
+  document.addEventListener('mouseout',e=>{
+    if(e.target.classList?.contains('__ve_h')&&e.target!==sel){e.target.style.outline='';e.target.classList.remove('__ve_h')}
+  });
+  document.addEventListener('click',e=>{
+    if(tool!=='select'&&tool!=='resize')return;
+    if(e.target===document.body||e.target===document.documentElement)return;
+    e.preventDefault();e.stopPropagation();pick(e.target);
+  },true);
+  document.addEventListener('mousedown',e=>{
+    if(tool!=='drag')return;
+    if(e.target===document.body||e.target===document.documentElement)return;
+    e.preventDefault();pick(e.target);
+    const cs=window.getComputedStyle(e.target);
+    if(cs.position!=='absolute'&&cs.position!=='fixed')e.target.style.position='relative';
+    drag={el:e.target,sx:e.clientX,sy:e.clientY,
+      ot:parseFloat(e.target.style.top)||0,ol:parseFloat(e.target.style.left)||0,sel:uq(e.target)};
+    document.body.style.cursor='grabbing';
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    const top=Math.round(drag.ot+(e.clientY-drag.sy)),left=Math.round(drag.ol+(e.clientX-drag.sx));
+    drag.el.style.top=top+'px';drag.el.style.left=left+'px';
+    parent.postMessage({type:'DM',sel:drag.sel,top:top+'px',left:left+'px'},'*');
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!drag)return;
+    parent.postMessage({type:'DE',sel:drag.sel,top:drag.el.style.top,left:drag.el.style.left,pos:drag.el.style.position},'*');
+    drag=null;document.body.style.cursor='';
+  });
+  window.addEventListener('message',e=>{
+    const d=e.data;if(!d)return;
+    if(d.type==='SET_TOOL'){tool=d.tool;document.body.style.cursor=tool==='drag'?'grab':''}
+    if(d.type==='APPLY'&&sel){
+      const camel=d.css.replace(/-([a-z])/g,(_,c)=>c.toUpperCase());
+      sel.style[camel]=d.val;
+      parent.postMessage({type:'APPLIED',sel:uq(sel),css:d.css,val:d.val},'*');
+    }
+  });
+})();`;
+}
+
+// ═══════════════════════════════════════════
+// MENSAJES DEL IFRAME
+// ═══════════════════════════════════════════
+window.addEventListener('message',e=>{
+  const d=e.data;if(!d?.type)return;
+  if(d.type==='SEL')renderInspector(d);
+  if(d.type==='DM'){
+    const ti=document.querySelector('[data-css="top"]');
+    const li=document.querySelector('[data-css="left"]');
+    if(ti)ti.value=d.top;if(li)li.value=d.left;
+  }
+  if(d.type==='DE'){applyOverride(d.sel,'position',d.pos);applyOverride(d.sel,'top',d.top);applyOverride(d.sel,'left',d.left);flushCSS();setStatus('Movido ✓',true)}
+  if(d.type==='APPLIED'){applyOverride(d.sel,d.css,d.val);flushCSS()}
 });
 
-// ════════════════════════════════════════════════════
-// MENSAJES DESDE EL IFRAME
-// ════════════════════════════════════════════════════
-window.addEventListener('message', e => {
-  const d = e.data; if (!d?.type) return;
-  if (d.type === 'SEL')     { renderInspector(d); }
-  if (d.type === 'DM')      { updateDragInspector(d); }
-  if (d.type === 'DE')      { applyOverride(d.sel,'position',d.pos); applyOverride(d.sel,'top',d.top); applyOverride(d.sel,'left',d.left); flushCSS(); setStatus('Movido — CSS actualizado ✓',true); }
-  if (d.type === 'APPLIED') { applyOverride(d.sel,d.css,d.val); flushCSS(); }
-});
-
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // INSPECTOR
-// ════════════════════════════════════════════════════
-function rgb2hex(v) {
-  if (!v||v==='transparent'||v.includes('rgba(0, 0, 0, 0)')) return '#ffffff';
-  const m=v.match(/\d+/g); if(!m||m.length<3) return '#000000';
-  return '#'+[0,1,2].map(i=>(+m[i]).toString(16).padStart(2,'0')).join('');
+// ═══════════════════════════════════════════
+function rgb2hex(v){
+  if(!v||v==='transparent'||v.includes('rgba(0, 0, 0, 0)'))return'#ffffff';
+  const m=v.match(/\d+/g);if(!m||m.length<3)return'#000000';
+  return'#'+[0,1,2].map(i=>(+m[i]).toString(16).padStart(2,'0')).join('');
 }
-
-function renderInspector(d) {
-  const {tag,id,cls,sel,s} = d;
-  document.getElementById('insp-sel').style.display = 'block';
-  document.getElementById('insp-tag').innerHTML = `<b style="font-family:monospace;color:var(--acc2)">&lt;${tag}${id?'#'+id:''}&gt;</b>`;
-  document.getElementById('insp-path').textContent = cls?'.'+cls.split(' ').slice(0,3).join(' .'):sel;
-  document.getElementById('insp-empty').style.display = 'none';
-  document.getElementById('btn-copy-css').style.display = 'block';
-  const fg=rgb2hex(s.color), bg=rgb2hex(s.bg);
-  document.getElementById('insp-body').innerHTML = `
+function renderInspector(d){
+  const{tag,id,cls,sel,s}=d;
+  document.getElementById('insp-sel').style.display='block';
+  document.getElementById('insp-tag').innerHTML=`<b style="font-family:monospace;color:var(--acc2)">&lt;${tag}${id?'#'+id:''}&gt;</b>`;
+  document.getElementById('insp-path').textContent=cls?'.'+cls.split(' ').slice(0,3).join(' .'):sel;
+  document.getElementById('insp-empty').style.display='none';
+  document.getElementById('btn-copy-css').style.display='block';
+  const fg=rgb2hex(s.color),bg=rgb2hex(s.bg);
+  document.getElementById('insp-body').innerHTML=`
 <div class="isec"><div class="isec-ttl">Posición y tamaño</div>
 ${row('Ancho','width',s.width)}${row('Alto','height',s.height)}
 ${sel2('Position','position',s.position,['static','relative','absolute','fixed','sticky'])}
 ${row('Top','top',s.top||'auto')}${row('Left','left',s.left||'auto')}
-${row('Z-index','z-index',s.zIndex||'auto')}
-${sel2('Overflow','overflow',s.overflow,['visible','hidden','auto','scroll'])}
+${row('Z-index','z-index',s.zIndex||'auto')}${sel2('Overflow','overflow',s.overflow,['visible','hidden','auto','scroll'])}
 </div>
 <div class="isec"><div class="isec-ttl">Tipografía</div>
 ${color2('Color','color',fg)}${row('Tamaño','font-size',s.fontSize)}
@@ -1040,7 +759,8 @@ ${sel2('Alineación','text-align',s.textAlign,['left','center','right','justify'
 </div>
 <div class="isec"><div class="isec-ttl">Fondo y borde</div>
 ${color2('Fondo','background-color',bg)}${row('Border','border',s.border)}
-${row('Border radius','border-radius',s.borderRadius)}${row('Sombra','box-shadow',s.boxShadow==='none'?'':s.boxShadow)}
+${row('Border radius','border-radius',s.borderRadius)}
+${row('Sombra','box-shadow',s.boxShadow==='none'?'':s.boxShadow)}
 ${row('Opacidad','opacity',s.opacity)}
 </div>
 <div class="isec"><div class="isec-ttl">Espaciado</div>
@@ -1053,236 +773,201 @@ ${sel2('Justify','justify-content',s.justifyContent,['flex-start','flex-end','ce
 ${sel2('Align items','align-items',s.alignItems,['flex-start','flex-end','center','stretch','baseline'])}
 ${row('Gap','gap',s.gap)}
 </div>`;
-
-  document.querySelectorAll('.pi').forEach(el => {
-    const css = el.dataset.css; if (!css) return;
-    el.addEventListener('change', () => applyStyle(css, el.value));
-    if (el.type==='color') el.addEventListener('input', () => {
-      applyStyle(css, el.value);
-      const tx = document.querySelector(`.ctxt[data-css="${css}"]`);
-      if (tx) tx.value = el.value;
+  document.querySelectorAll('.pi').forEach(el=>{
+    const css=el.dataset.css;if(!css)return;
+    el.addEventListener('change',()=>applyStyle(css,el.value));
+    if(el.type==='color')el.addEventListener('input',()=>{
+      applyStyle(css,el.value);
+      const tx=document.querySelector(`.ctxt[data-css="${css}"]`);if(tx)tx.value=el.value;
     });
   });
-  document.querySelectorAll('.ctxt').forEach(el => {
-    el.addEventListener('input', () => {
-      applyStyle(el.dataset.css, el.value);
-      const cp = document.querySelector(`input[type=color][data-css="${el.dataset.css}"]`);
-      if (cp && /^#[0-9a-fA-F]{6}$/.test(el.value)) cp.value = el.value;
+  document.querySelectorAll('.ctxt').forEach(el=>{
+    el.addEventListener('input',()=>{
+      applyStyle(el.dataset.css,el.value);
+      const cp=document.querySelector(`input[type=color][data-css="${el.dataset.css}"]`);
+      if(cp&&/^#[0-9a-fA-F]{6}$/.test(el.value))cp.value=el.value;
     });
   });
 }
+function row(l,c,v){return`<div class="pr"><span class="pn">${l}</span><input class="pi" type="text" data-css="${c}" value="${(v||'').replace(/"/g,'&quot;')}"></div>`}
+function sel2(l,c,v,opts){return`<div class="pr"><span class="pn">${l}</span><select class="pi" data-css="${c}">${opts.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select></div>`}
+function color2(l,c,h){return`<div class="pr"><span class="pn">${l}</span><input class="pi" type="color" data-css="${c}" value="${h||'#ffffff'}"><input class="pi ctxt" type="text" data-css="${c}" style="flex:1;margin-left:4px" value="${h||'#ffffff'}"></div>`}
+function applyStyle(css,val){sendToFrame({type:'APPLY',css,val})}
 
-function updateDragInspector(d) {
-  const ti = document.querySelector('[data-css="top"]');
-  const li = document.querySelector('[data-css="left"]');
-  if (ti) ti.value = d.top; if (li) li.value = d.left;
+// ═══════════════════════════════════════════
+// CSS OVERRIDES
+// ═══════════════════════════════════════════
+function buildOverrideCSS(){
+  return Object.entries(S.overrides).map(([sel,props])=>`${sel}{${Object.entries(props).map(([p,v])=>`${p}:${v}!important`).join(';')}}`).join('\n');
 }
-
-function row(label,css,val) {
-  return `<div class="pr"><span class="pn">${label}</span><input class="pi" type="text" data-css="${css}" value="${(val||'').replace(/"/g,'&quot;')}"></div>`;
-}
-function sel2(label,css,val,opts) {
-  return `<div class="pr"><span class="pn">${label}</span><select class="pi" data-css="${css}">${opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}</select></div>`;
-}
-function color2(label,css,hex) {
-  return `<div class="pr"><span class="pn">${label}</span><input class="pi" type="color" data-css="${css}" value="${hex||'#ffffff'}"><input class="pi ctxt" type="text" data-css="${css}" style="flex:1;margin-left:4px" value="${hex||'#ffffff'}"></div>`;
-}
-
-function applyStyle(cssName, value) {
-  sendToFrame({ type:'APPLY', css:cssName, val:value });
-}
-
-// ════════════════════════════════════════════════════
-// CSS OVERRIDES + ESCRITURA
-// ════════════════════════════════════════════════════
-function buildOverrideCSS() {
-  return Object.entries(S.overrides)
-    .map(([sel,props]) => `${sel}{${Object.entries(props).map(([p,v])=>`${p}:${v}!important`).join(';')}}`)
-    .join('\n');
-}
-
-function applyOverride(sel,prop,val) {
-  if (!S.overrides[sel]) S.overrides[sel]={};
-  S.overrides[sel][prop] = val;
+function applyOverride(sel,prop,val){
+  if(!S.overrides[sel])S.overrides[sel]={};
+  S.overrides[sel][prop]=val;
   S.undoStack.push({sel,prop});
-  if (S.undoStack.length>100) S.undoStack.shift();
+  if(S.undoStack.length>100)S.undoStack.shift();
 }
-
-function flushCSS() {
-  // Encontrar o crear archivo CSS
-  let cssPath = Object.keys(S.files).find(p => S.files[p].ext==='css');
-  if (!cssPath) {
-    cssPath = (S.name?S.name+'/':'')+'visualcss-overrides.css';
-    S.files[cssPath] = {content:'',mime:'text/css',type:'css',ext:'css',isText:true,modified:false,name:'visualcss-overrides.css'};
-    buildTree(); renderTree();
-  }
-  let css = S.files[cssPath].content;
-  Object.entries(S.overrides).forEach(([sel,props]) => {
-    const block = `/* [ve] */ ${sel} {\n${Object.entries(props).map(([p,v])=>`  ${p}: ${v};`).join('\n')}\n}`;
-    css = css.replace(new RegExp('/\\* \\[ve\\] \\*/ '+escRe(sel)+'\\s*\\{[^}]*\\}','g'),'').trimEnd()+'\n'+block+'\n';
-  });
-  S.files[cssPath].content = css;
-  S.files[cssPath].modified = true;
-  // Actualizar style en iframe en tiempo real sin recargar
-  try {
-    const fr = document.getElementById('preview-iframe');
-    if (fr.contentDocument) {
-      let s = fr.contentDocument.getElementById('__ve_style__');
-      if (!s) {
-        s = fr.contentDocument.createElement('style');
-        s.id = '__ve_style__';
-        (fr.contentDocument.head || fr.contentDocument.body).appendChild(s);
-      }
-      s.textContent = buildOverrideCSS();
-    }
-  } catch(_) {}
-  if (S.activeFile===cssPath) document.getElementById('code-ed').value=css;
-  // Auto-save
-  if (S.files[cssPath].fileHandle) {
-    S.files[cssPath].fileHandle.createWritable()
-      .then(w=>w.write(css).then(()=>w.close()))
-      .then(()=>{S.files[cssPath].modified=false;renderCodeTabs();setStatus('💾 CSS guardado ✓',true);})
-      .catch(()=>{});
-  }
-  renderCodeTabs(); renderTree();
+function updateOverrideStyle(){
+  try{
+    const doc=document.getElementById('preview-iframe').contentDocument;if(!doc)return;
+    let s=doc.getElementById('__ve_style__');
+    if(!s){s=doc.createElement('style');s.id='__ve_style__';(doc.head||doc.documentElement).appendChild(s)}
+    s.textContent=buildOverrideCSS();
+  }catch(_){}
 }
-
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 
-function copyCSSChanges() {
-  const txt = Object.entries(S.overrides).map(([s,p])=>`${s}{\n${Object.entries(p).map(([k,v])=>`  ${k}:${v};`).join('\n')}\n}`).join('\n\n');
-  if (txt) navigator.clipboard.writeText(txt).then(()=>setStatus('CSS copiado ✓',true)).catch(()=>{});
+function flushCSS(){
+  // Actualizar en tiempo real en el iframe
+  updateOverrideStyle();
+  // Encontrar o crear CSS
+  let cssPath=Object.keys(S.files).find(p=>S.files[p].ext==='css');
+  if(!cssPath){
+    cssPath=(S.name?S.name+'/':'')+'visualcss-overrides.css';
+    S.files[cssPath]={content:'',mime:'text/css',type:'css',ext:'css',isText:true,modified:false,name:'visualcss-overrides.css'};
+    buildTree();renderTree();
+  }
+  let css=S.files[cssPath].content;
+  Object.entries(S.overrides).forEach(([sel,props])=>{
+    const block=`/* [ve] */ ${sel} {\n${Object.entries(props).map(([p,v])=>`  ${p}: ${v};`).join('\n')}\n}`;
+    css=css.replace(new RegExp('/\\* \\[ve\\] \\*/ '+escRe(sel)+'\\s*\\{[^}]*\\}','g'),'').trimEnd()+'\n'+block+'\n';
+  });
+  S.files[cssPath].content=css; S.files[cssPath].modified=true;
+  if(S.activeFile===cssPath)document.getElementById('code-ed').value=css;
+  if(S.files[cssPath].fileHandle){
+    S.files[cssPath].fileHandle.createWritable().then(w=>w.write(css).then(()=>w.close())).then(()=>{S.files[cssPath].modified=false;renderCodeTabs();setStatus('💾 CSS guardado ✓',true)}).catch(()=>{});
+  }
+  renderCodeTabs();renderTree();
+}
+function copyCSSChanges(){
+  const t=Object.entries(S.overrides).map(([s,p])=>`${s}{\n${Object.entries(p).map(([k,v])=>`  ${k}:${v};`).join('\n')}\n}`).join('\n\n');
+  if(t)navigator.clipboard.writeText(t).then(()=>setStatus('CSS copiado ✓',true)).catch(()=>{});
 }
 
-// ════════════════════════════════════════════════════
-// CÓDIGO EDITOR
-// ════════════════════════════════════════════════════
-function renderCodeTabs() {
-  const bar = document.getElementById('ctabs'); bar.innerHTML='';
-  const files = Object.keys(S.files).filter(p=>EDIT_EXT.has(S.files[p].ext)).sort();
-  if (!files.length) { bar.innerHTML='<span style="padding:8px 14px;font-size:11px;color:var(--tx3)">Sin archivos editables</span>'; return; }
-  files.forEach(path => {
-    const f=S.files[path], t=document.createElement('div');
+// ═══════════════════════════════════════════
+// CODE EDITOR
+// ═══════════════════════════════════════════
+function renderCodeTabs(){
+  const bar=document.getElementById('ctabs');bar.innerHTML='';
+  const files=Object.keys(S.files).filter(p=>EDIT_EXT.has(S.files[p].ext)).sort();
+  if(!files.length){bar.innerHTML='<span style="padding:8px 14px;font-size:11px;color:var(--tx3)">Sin archivos</span>';return}
+  files.forEach(path=>{
+    const f=S.files[path],t=document.createElement('div');
     t.className='ctab'+(path===S.activeFile?' on':'');
     t.innerHTML=(f.name||path.split('/').pop())+(f.modified?'<span class="mdot"></span>':'');
     t.title=path;
-    t.onclick=()=>{ S.activeFile=path; document.getElementById('code-ed').value=f.content; document.getElementById('btn-save-file').classList.add('show'); renderCodeTabs(); renderTree(); };
+    t.onclick=()=>{S.activeFile=path;document.getElementById('code-ed').value=f.content;document.getElementById('btn-save-file').classList.add('show');renderCodeTabs();renderTree()};
     bar.appendChild(t);
   });
   document.getElementById('btn-save-file').classList.toggle('show',!!S.activeFile);
 }
-
-const ed = document.getElementById('code-ed');
-ed.addEventListener('input', () => {
-  if (!S.activeFile) return;
-  const f=S.files[S.activeFile]; if(!f?.isText) return;
-  f.content=ed.value; f.modified=true;
-  updateSW(S.activeFile, f.content);
-  renderCodeTabs(); renderTree();
+const ed=document.getElementById('code-ed');
+ed.addEventListener('input',()=>{
+  if(!S.activeFile)return;
+  const f=S.files[S.activeFile];if(!f?.isText)return;
+  f.content=ed.value;f.modified=true;renderCodeTabs();renderTree();
 });
-ed.addEventListener('keydown', e => {
-  if (e.key==='Tab') { e.preventDefault(); const s=ed.selectionStart; ed.value=ed.value.slice(0,s)+'  '+ed.value.slice(ed.selectionEnd); ed.selectionStart=ed.selectionEnd=s+2; ed.dispatchEvent(new Event('input')); }
-  if ((e.ctrlKey||e.metaKey)&&e.key==='s') { e.preventDefault(); saveActiveFile(); }
+ed.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+'  '+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2;ed.dispatchEvent(new Event('input'))}
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveActiveFile()}
 });
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // GUARDAR
-// ════════════════════════════════════════════════════
-async function saveActiveFile() {
-  if (!S.activeFile) return;
-  const f=S.files[S.activeFile]; if(!f?.isText) return;
-  if (f.fileHandle) {
-    try { const w=await f.fileHandle.createWritable(); await w.write(f.content); await w.close(); f.modified=false; renderCodeTabs(); renderTree(); setStatus('💾 '+f.name+' guardado ✓',true); }
-    catch(e) { setStatus('Error: '+e.message,false); }
-  } else {
+// ═══════════════════════════════════════════
+async function saveActiveFile(){
+  if(!S.activeFile)return;
+  const f=S.files[S.activeFile];if(!f?.isText)return;
+  if(f.fileHandle){
+    try{const w=await f.fileHandle.createWritable();await w.write(f.content);await w.close();f.modified=false;renderCodeTabs();renderTree();setStatus('💾 '+f.name+' guardado ✓',true)}
+    catch(e){setStatus('Error: '+e.message,false)}
+  }else{
     const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([f.content],{type:f.mime})),download:f.name||'archivo'});
-    a.click(); URL.revokeObjectURL(a.href); f.modified=false; renderCodeTabs(); setStatus('⬇ '+f.name+' descargado ✓',true);
+    a.click();URL.revokeObjectURL(a.href);f.modified=false;renderCodeTabs();setStatus('⬇ '+f.name+' descargado ✓',true);
   }
 }
-
-async function saveAll() {
+async function saveAll(){
   const mod=Object.entries(S.files).filter(([,f])=>f.isText&&f.modified);
-  if(!mod.length){setStatus('Nada que guardar',false);return;}
+  if(!mod.length){setStatus('Nada que guardar',false);return}
   let saved=0;
   for(const[path,f]of mod){
-    if(f.fileHandle){try{const w=await f.fileHandle.createWritable();await w.write(f.content);await w.close();f.modified=false;saved++;}catch(_){}}
-    else{const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([f.content],{type:f.mime})),download:f.name||path.split('/').pop()});a.click();URL.revokeObjectURL(a.href);f.modified=false;saved++;}
+    if(f.fileHandle){try{const w=await f.fileHandle.createWritable();await w.write(f.content);await w.close();f.modified=false;saved++}catch(_){}}
+    else{const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([f.content],{type:f.mime})),download:f.name||path.split('/').pop()});a.click();URL.revokeObjectURL(a.href);f.modified=false;saved++}
   }
   renderCodeTabs();renderTree();setStatus(`💾 ${saved} archivos guardados ✓`,true);
 }
-
-function exportAll() {
+function exportAll(){
   let i=0;
   Object.entries(S.files).filter(([,f])=>f.isText).forEach(([path,f])=>{
-    setTimeout(()=>{const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([f.content],{type:f.mime})),download:f.name||path.split('/').pop()});a.click();URL.revokeObjectURL(a.href);},i++*80);
+    setTimeout(()=>{const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([f.content],{type:f.mime})),download:f.name||path.split('/').pop()});a.click();URL.revokeObjectURL(a.href)},i++*80)
   });
   setStatus('Exportados ✓',true);
 }
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // UNDO
-// ════════════════════════════════════════════════════
-function undo() {
+// ═══════════════════════════════════════════
+function undo(){
   if(!S.undoStack.length)return;
   const{sel,prop}=S.undoStack.pop();
-  if(S.overrides[sel]){delete S.overrides[sel][prop];if(!Object.keys(S.overrides[sel]).length)delete S.overrides[sel];}
-  flushCSS(); setStatus('Deshacer ✓',true);
+  if(S.overrides[sel]){delete S.overrides[sel][prop];if(!Object.keys(S.overrides[sel]).length)delete S.overrides[sel]}
+  updateOverrideStyle();setStatus('Deshacer ✓',true);
 }
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // VIEWPORT
-// ════════════════════════════════════════════════════
-function setVP(w) {
+// ═══════════════════════════════════════════
+function setVP(w){
   ['full','1280','768','390'].forEach(x=>document.getElementById('vp-'+x).classList.remove('on'));
   const fr=document.getElementById('preview-iframe');
-  const ov=document.getElementById('edit-overlay');
   const wrap=document.getElementById('preview-wrap');
   if(w==='100%'){
-    [fr,ov].forEach(el=>{el.style.width='100%';el.style.height='100%';el.style.margin='0';el.style.border='none';el.style.borderRadius='0';});
+    fr.style.cssText='width:100%;height:100%;border:none;position:absolute;inset:0;display:block';
     wrap.style.background='#fff';
     document.getElementById('vp-full').classList.add('on');
-  } else {
+  }else{
     const px=parseInt(w);
-    [fr,ov].forEach(el=>{el.style.width=px+'px';el.style.height='calc(100% - 20px)';el.style.margin='10px auto';el.style.border='1px solid rgba(0,0,0,.15)';el.style.borderRadius='6px';});
+    fr.style.cssText=`width:${px}px;height:calc(100% - 20px);margin:10px auto;border:1px solid rgba(0,0,0,.15);border-radius:6px;display:block;position:relative`;
     wrap.style.background='#e5e7eb';
     document.getElementById('vp-'+px).classList.add('on');
   }
 }
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // TECLADO
-// ════════════════════════════════════════════════════
-document.addEventListener('keydown', e => {
-  const inEd = document.activeElement?.tagName==='TEXTAREA'||document.activeElement?.tagName==='INPUT';
-  if (e.key==='F5') { e.preventDefault(); S.mode==='play'?setMode('select'):setMode('play'); }
-  if (e.key==='Escape'&&S.mode==='play') { e.preventDefault(); setMode('select'); }
-  if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!inEd) { e.preventDefault(); undo(); }
-  if ((e.ctrlKey||e.metaKey)&&e.key==='s'&&!inEd) { e.preventDefault(); saveAll(); }
+// ═══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  const inEd=document.activeElement?.tagName==='TEXTAREA'||document.activeElement?.tagName==='INPUT';
+  if(e.key==='F5'){e.preventDefault();S.mode==='play'?setMode('select'):setMode('play')}
+  if(e.key==='Escape'&&S.mode!=='play'){e.preventDefault();setMode('play')}
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!inEd){e.preventDefault();undo()}
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'&&!inEd){e.preventDefault();saveAll()}
 });
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // RESIZERS
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 function mkRz(hid,tid,dir){
   const h=document.getElementById(hid);let on=false,sx=0,sy=0,ss=0;
-  h.addEventListener('mousedown',e=>{on=true;sx=e.clientX;sy=e.clientY;ss=dir==='h'?document.getElementById(tid).offsetWidth:document.getElementById(tid).offsetHeight;document.body.style.cursor=dir==='h'?'ew-resize':'ns-resize';e.preventDefault();});
-  document.addEventListener('mousemove',e=>{if(!on)return;const t=document.getElementById(tid);if(dir==='h')t.style.width=Math.max(120,Math.min(500,ss+(e.clientX-sx)))+'px';else t.style.height=Math.max(60,Math.min(600,ss+(sy-e.clientY)))+'px';});
-  document.addEventListener('mouseup',()=>{if(on){on=false;document.body.style.cursor='';}});
+  h.addEventListener('mousedown',e=>{on=true;sx=e.clientX;sy=e.clientY;ss=dir==='h'?document.getElementById(tid).offsetWidth:document.getElementById(tid).offsetHeight;document.body.style.cursor=dir==='h'?'ew-resize':'ns-resize';e.preventDefault()});
+  document.addEventListener('mousemove',e=>{if(!on)return;const t=document.getElementById(tid);if(dir==='h')t.style.width=Math.max(120,Math.min(500,ss+(e.clientX-sx)))+'px';else t.style.height=Math.max(60,Math.min(600,ss+(sy-e.clientY)))+'px'});
+  document.addEventListener('mouseup',()=>{if(on){on=false;document.body.style.cursor=''}});
 }
 mkRz('rz-l','tree-panel','h');
 mkRz('rz-r','inspector','h');
 mkRz('rz-code','code-panel','v');
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STATUS
-// ════════════════════════════════════════════════════
-function setStatus(msg,ok){document.getElementById('stxt').textContent=msg;document.getElementById('sdot').className=ok?'ok':'';}
+// ═══════════════════════════════════════════
+function setStatus(msg,ok){document.getElementById('stxt').textContent=msg;document.getElementById('sdot').className=ok?'ok':''}
 
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // INIT
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 initImportUI();
-initSW();
+// Estado inicial: modo jugar (sin bridge activo)
+document.getElementById('t-play').classList.add('on');
+document.body.className='play-active';
 </script>
 </body>
 </html>

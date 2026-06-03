@@ -294,17 +294,18 @@ function getMime(ext) {
 // ESTADO
 // ════════════════════════════════════════════════════
 const S = {
-  files:      {},      // fullPath → {content,mime,type,ext,isText,modified,name,fileHandle?,blobUrl?}
-  name:       '',      // nombre carpeta raíz ("Version 9")
+  files:      {},
+  name:       '',
   activeFile: null,
   currentHTML:null,
-  overrides:  {},      // selector → {prop:val}
+  overrides:  {},
   undoStack:  [],
-  mode:       'select',// 'play' | 'select' | 'drag' | 'resize'
+  mode:       'select',
   dirHandle:  null,
   fsApi:      typeof window.showDirectoryPicker === 'function',
   swReady:    false,
   swReg:      null,
+  SW_BASE:    '',   // e.g. https://user.github.io/EDITOR-VISUAL/visualcss/
   iframeLoaded: false,
 };
 
@@ -320,11 +321,15 @@ async function initSW() {
   }
   try {
     const swUrl = new URL('./sw.js', location.href).href;
-    // Scope '/' — intercepta TODAS las peticiones same-origin del iframe
-    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    // Scope = mismo directorio que el editor (ej: /EDITOR-VISUAL/)
+    // El SW puede interceptar todo lo que cargue el iframe bajo ese path
+    const scopeUrl = new URL('./', location.href).href;
+    const reg = await navigator.serviceWorker.register(swUrl, { scope: scopeUrl });
     S.swReg = reg;
     await navigator.serviceWorker.ready;
     S.swReady = true;
+    // Base URL para servir archivos: /EDITOR-VISUAL/visualcss/
+    S.SW_BASE = new URL('./visualcss/', location.href).href;
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data?.type === 'SW_READY') swBar(`✓ Servidor HTTP activo — ${e.data.count} archivos`, 'var(--gr)', 3000);
     });
@@ -343,13 +348,13 @@ function swBar(msg, color, hideMs) {
 }
 
 // Enviar todos los archivos al SW
+// Keys bajo "visualcss/" para que queden bajo el scope del editor
 function pushToSW() {
   if (!S.swReady || !S.swReg?.active) return;
   const payload = {};
   for (const [path, f] of Object.entries(S.files)) {
-    // Key = path sin el prefijo de la carpeta raíz
-    // "Version 9/blackjack/index.html" → "blackjack/index.html"
-    const key = stripRoot(path);
+    // "Version 9/blackjack/index.html" → "visualcss/blackjack/index.html"
+    const key = 'visualcss/' + stripRoot(path);
     payload[key] = { content: f.content, mime: f.mime };
   }
   S.swReg.active.postMessage({ type: 'SET_FILES', files: payload });
@@ -359,13 +364,14 @@ function updateSW(path, content) {
   if (!S.swReady || !S.swReg?.active) return;
   S.swReg.active.postMessage({
     type: 'UPDATE_FILE',
-    path: stripRoot(path),
+    path: 'visualcss/' + stripRoot(path),
     content,
     mime: S.files[path]?.mime || getMime(path.split('.').pop())
   });
 }
 
 function stripRoot(path) {
+  // "Version 9/blackjack/index.html" → "blackjack/index.html"
   return path.startsWith(S.name + '/') ? path.slice(S.name.length + 1) : path;
 }
 
@@ -629,20 +635,17 @@ function openFile(path) {
 // Carga una página en el iframe (solo cuando cambia de HTML)
 function loadPage(path) {
   if (!S.swReady) {
-    // Sin SW: fallback inline
     loadPageInline(path);
     return;
   }
   S.currentHTML = path;
   const swPath = stripRoot(path);
-  document.getElementById('url-bar').value = '/' + swPath;
+  document.getElementById('url-bar').value = S.SW_BASE + swPath;
   document.getElementById('no-prev').style.display = 'none';
   const fr = document.getElementById('preview-iframe');
   fr.style.display = 'block';
-  // Cargar la URL real — el SW la sirve
-  fr.src = '/' + swPath + '?v=' + Date.now();
+  fr.src = S.SW_BASE + swPath + '?v=' + Date.now();
   S.iframeLoaded = true;
-  // Cuando cargue, aplicar el modo actual
   fr.onload = () => applyCurrentMode();
   renderPageBar(); renderTree();
 }

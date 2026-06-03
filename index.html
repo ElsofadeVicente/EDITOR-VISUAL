@@ -655,11 +655,13 @@ function loadPage(path) {
   document.getElementById('no-prev').style.display = 'none';
   const fr = document.getElementById('preview-iframe');
   fr.style.display = 'block';
-  // Construir documento con todos los recursos inlineados desde S.files
+  S.iframeLoaded = false;
   fr.removeAttribute('src');
   fr.srcdoc = buildDoc(path);
-  S.iframeLoaded = true;
-  fr.onload = () => applyCurrentMode();
+  fr.onload = () => {
+    S.iframeLoaded = true;
+    applyCurrentMode();
+  };
   renderPageBar(); renderTree();
 }
 
@@ -706,15 +708,13 @@ function buildDoc(htmlPath) {
     return _;
   });
 
-  // 4. Inyectar override CSS + bridge si estamos en modo editar
+  // 4. Inyectar override CSS (sin bridge — se inyecta por DOM cuando se necesita)
   const overrideCSS = buildOverrideCSS();
-  const bridgeCode = S.mode !== 'play' ? `<script id="__ve_bridge__">\n${getBridgeCode()}\n<\/script>` : '';
   const styleTag = `<style id="__ve_style__">${overrideCSS}</style>`;
-  const injection = styleTag + bridgeCode;
 
-  if (html.includes('</body>')) return html.replace('</body>', injection + '\n</body>');
-  if (html.includes('</html>')) return html.replace('</html>', injection + '\n</html>');
-  return html + injection;
+  if (html.includes('</body>')) return html.replace('</body>', styleTag + '\n</body>');
+  if (html.includes('</html>')) return html.replace('</html>', styleTag + '\n</html>');
+  return html + styleTag;
 }
 
 // Inline @import y url() dentro de CSS
@@ -780,43 +780,70 @@ function setMode(mode) {
 
   if (!S.iframeLoaded || !S.currentHTML) return;
 
+  const fr = document.getElementById('preview-iframe');
+
   if (mode === 'play') {
-    // Quitar bridge — reconstruir srcdoc sin él
-    // El iframe recarga PERO es instantáneo porque todo viene de memoria
+    // NUNCA recargar — quitar bridge del DOM del iframe, estado del juego se conserva
     document.getElementById('edit-overlay').classList.remove('show');
-    const fr = document.getElementById('preview-iframe');
-    fr.srcdoc = buildDoc(S.currentHTML);
-    setStatus('▶ Modo Jugar', true);
-  } else {
-    // Activar bridge
-    document.getElementById('edit-overlay').classList.add('show');
-    // Si ya tenemos el bridge inyectado, solo cambiamos la herramienta
     try {
-      const doc = document.getElementById('preview-iframe').contentDocument;
-      if (doc && doc.getElementById('__ve_bridge__')) {
-        // Bridge ya existe — solo actualizar herramienta
-        sendToFrame({ type: 'SET_TOOL', tool: mode });
-        return;
+      const doc = fr.contentDocument;
+      if (doc) {
+        const br = doc.getElementById('__ve_bridge__');
+        if (br) br.remove();
+        doc.querySelectorAll('[data-ve-outlined]').forEach(el => {
+          el.style.outline = '';
+          el.removeAttribute('data-ve-outlined');
+        });
       }
     } catch(_) {}
-    // Si no, reconstruir con bridge
-    document.getElementById('preview-iframe').srcdoc = buildDoc(S.currentHTML);
+    setStatus('▶ Modo Jugar — estado conservado', true);
+
+  } else {
+    // NUNCA recargar — inyectar bridge en el DOM del iframe
+    document.getElementById('edit-overlay').classList.add('show');
+    try {
+      const doc = fr.contentDocument;
+      if (!doc) { setStatus('iframe no accesible', false); return; }
+
+      // Si bridge ya existe, solo cambiar herramienta
+      if (doc.getElementById('__ve_bridge__')) {
+        sendToFrame({ type: 'SET_TOOL', tool: mode });
+        setStatus('Modo editar — ' + mode, true);
+        return;
+      }
+
+      // Inyectar bridge como nuevo script en el body del iframe
+      const sc = doc.createElement('script');
+      sc.id = '__ve_bridge__';
+      sc.textContent = getBridgeCode();
+      (doc.body || doc.documentElement).appendChild(sc);
+
+      // Inyectar / actualizar estilo de overrides
+      let stel = doc.getElementById('__ve_style__');
+      if (!stel) {
+        stel = doc.createElement('style');
+        stel.id = '__ve_style__';
+        (doc.head || doc.documentElement).appendChild(stel);
+      }
+      stel.textContent = buildOverrideCSS();
+
+    } catch(e) {
+      console.warn('No se pudo inyectar bridge:', e);
+    }
     setStatus('Modo editar — ' + mode, true);
   }
 }
 
+// Llamado cuando el iframe termina su carga inicial
+// El iframe carga SIEMPRE en modo jugar (srcdoc sin bridge)
+// Si el usuario ya estaba en modo editar, inyectamos el bridge
 function applyCurrentMode() {
   if (S.mode !== 'play') {
-    document.getElementById('edit-overlay').classList.add('show');
-    sendToFrame({ type: 'SET_TOOL', tool: S.mode });
-  } else {
-    document.getElementById('edit-overlay').classList.remove('show');
+    // Pequeño delay para que el DOM del iframe esté listo
+    setTimeout(() => setMode(S.mode), 50);
   }
 }
 
-function injectBridgeIntoFrame() {
-  // No longer needed — bridge is inlined in srcdoc via buildDoc
-}
 
 function sendToFrame(msg) {
   const fr = document.getElementById('preview-iframe');

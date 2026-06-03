@@ -645,33 +645,19 @@ function openFile(path) {
   renderTree();
 }
 
-// Carga una página en el iframe (solo cuando cambia de HTML)
+// Carga una página en el iframe SIEMPRE desde memoria (srcdoc)
+// Nunca carga URLs de GitHub Pages — todo viene de S.files
 function loadPage(path) {
-  if (!S.swReady) {
-    loadPageInline(path);
-    return;
-  }
-  S.currentHTML = path;
-  const swPath = stripRoot(path);
-  document.getElementById('url-bar').value = S.SW_BASE + swPath;
-  document.getElementById('no-prev').style.display = 'none';
-  const fr = document.getElementById('preview-iframe');
-  fr.style.display = 'block';
-  fr.src = S.SW_BASE + swPath + '?v=' + Date.now();
-  S.iframeLoaded = true;
-  fr.onload = () => applyCurrentMode();
-  renderPageBar(); renderTree();
-}
-
-// Fallback sin SW: bundle inline
-function loadPageInline(path) {
+  const f = S.files[path];
+  if (!f?.isText) return;
   S.currentHTML = path;
   document.getElementById('url-bar').value = path;
   document.getElementById('no-prev').style.display = 'none';
   const fr = document.getElementById('preview-iframe');
   fr.style.display = 'block';
+  // Construir documento con todos los recursos inlineados desde S.files
   fr.removeAttribute('src');
-  fr.srcdoc = buildBundle(path, S.mode !== 'play');
+  fr.srcdoc = buildDoc(path);
   S.iframeLoaded = true;
   fr.onload = () => applyCurrentMode();
   renderPageBar(); renderTree();
@@ -679,6 +665,98 @@ function loadPageInline(path) {
 
 function reloadPage() {
   if (S.currentHTML) loadPage(S.currentHTML);
+}
+
+// Construye el documento completo con CSS/JS inlineados y assets como blob URLs
+// Esto no necesita servidor — todo viene de S.files en memoria
+function buildDoc(htmlPath) {
+  const f = S.files[htmlPath];
+  if (!f?.isText) return '';
+  const dir = htmlPath.split('/').slice(0, -1).join('/');
+  let html = f.content;
+
+  // 1. Inline <link rel="stylesheet" href="...">
+  html = html.replace(/<link([^>]+)>/gi, tag => {
+    if (!/rel=["']stylesheet["']/i.test(tag)) return tag;
+    const m = tag.match(/href=["']([^"']+)["']/i);
+    if (!m) return tag;
+    const href = m[1];
+    if (href.startsWith('http') || href.startsWith('//')) return tag; // externos: dejar
+    const cf = findFile(resolveRel(dir, href));
+    if (!cf?.isText) return tag;
+    const css = inlineCSS(cf.content, resolveRel(dir, href).split('/').slice(0, -1).join('/'));
+    return `<style>\n${css}\n</style>`;
+  });
+
+  // 2. Inline <script src="...">
+  html = html.replace(/<script([^>]*)src=["']([^"']+)["']([^>]*)><\/script>/gi, (_, pre, src, post) => {
+    if (src.startsWith('http') || src.startsWith('//')) return _; // externos: dejar
+    const jf = findFile(resolveRel(dir, src));
+    if (!jf?.isText) return _;
+    // quitar type="module" — no funciona en srcdoc sin servidor
+    const attrs = (pre + post).replace(/\btype=["']module["']/gi, '');
+    return `<script${attrs}>\n${jf.content}\n<\/script>`;
+  });
+
+  // 3. Reemplazar src/href de assets (imágenes, fuentes) con blob URLs
+  html = html.replace(/(\b(?:src|href)=["'])([^"'#?]+)(["'])/gi, (_, a, p, b) => {
+    if (p.startsWith('http') || p.startsWith('//') || p.startsWith('data:')) return _;
+    const af = findFile(resolveRel(dir, p));
+    if (af?.blobUrl) return a + af.blobUrl + b;
+    return _;
+  });
+
+  // 4. Inyectar override CSS + bridge si estamos en modo editar
+  const overrideCSS = buildOverrideCSS();
+  const bridgeCode = S.mode !== 'play' ? `<script id="__ve_bridge__">\n${getBridgeCode()}\n<\/script>` : '';
+  const styleTag = `<style id="__ve_style__">${overrideCSS}</style>`;
+  const injection = styleTag + bridgeCode;
+
+  if (html.includes('</body>')) return html.replace('</body>', injection + '\n</body>');
+  if (html.includes('</html>')) return html.replace('</html>', injection + '\n</html>');
+  return html + injection;
+}
+
+// Inline @import y url() dentro de CSS
+function inlineCSS(css, cssDir) {
+  // @import
+  css = css.replace(/@import\s+(?:url\()?["']([^"')]+)["']\)?[^;]*;/gi, (m, p) => {
+    if (p.startsWith('http') || p.startsWith('//')) return m;
+    const cf = findFile(resolveRel(cssDir, p));
+    if (!cf?.isText) return m;
+    return inlineCSS(cf.content, resolveRel(cssDir, p).split('/').slice(0, -1).join('/'));
+  });
+  // url()
+  css = css.replace(/url\(["']?([^"')#?\s]+)["']?\)/gi, (m, u) => {
+    if (u.startsWith('http') || u.startsWith('data:') || u.startsWith('//')) return m;
+    const af = findFile(resolveRel(cssDir, u));
+    if (af?.blobUrl) return `url("${af.blobUrl}")`;
+    return m;
+  });
+  return css;
+}
+
+// Buscar un archivo en S.files por path completo o parcial
+function findFile(path) {
+  // 1. Exacto con root
+  if (S.files[path]) return S.files[path];
+  // 2. Con prefijo del proyecto
+  const withRoot = S.name + '/' + path;
+  if (S.files[withRoot]) return S.files[withRoot];
+  // 3. Sufijo: cualquier key que termine en /path o sea igual
+  const k = Object.keys(S.files).find(k => k === path || k.endsWith('/' + path));
+  return k ? S.files[k] : null;
+}
+
+// Resolver path relativo
+function resolveRel(base, rel) {
+  const parts = ((base ? base + '/' : '') + rel).split('/');
+  const out = [];
+  for (const p of parts) {
+    if (p === '..') out.pop();
+    else if (p && p !== '.') out.push(p);
+  }
+  return out.join('/');
 }
 
 // ════════════════════════════════════════════════════
@@ -694,72 +772,50 @@ function reloadPage() {
 
 function setMode(mode) {
   S.mode = mode;
-
-  // Actualizar botones topbar
   ['t-play','t-sel','t-drag','t-rsz'].forEach(id => document.getElementById(id).classList.remove('on'));
   const map = { play:'t-play', select:'t-sel', drag:'t-drag', resize:'t-rsz' };
   if (map[mode]) document.getElementById(map[mode]).classList.add('on');
-
   document.body.className = mode === 'play' ? 'play-active' : 'edit-active';
   document.getElementById('play-banner').classList.toggle('show', mode === 'play');
 
-  if (!S.iframeLoaded) return;
+  if (!S.iframeLoaded || !S.currentHTML) return;
 
   if (mode === 'play') {
-    // Quitar bridge del iframe (el juego funciona 100% normal)
-    sendToFrame({ type: 'BRIDGE_OFF' });
+    // Quitar bridge — reconstruir srcdoc sin él
+    // El iframe recarga PERO es instantáneo porque todo viene de memoria
     document.getElementById('edit-overlay').classList.remove('show');
-    setStatus('▶ Modo Jugar — servidor HTTP activo', true);
+    const fr = document.getElementById('preview-iframe');
+    fr.srcdoc = buildDoc(S.currentHTML);
+    setStatus('▶ Modo Jugar', true);
   } else {
-    // Activar bridge en el iframe
-    sendToFrame({ type: 'BRIDGE_ON', tool: mode });
+    // Activar bridge
     document.getElementById('edit-overlay').classList.add('show');
+    // Si ya tenemos el bridge inyectado, solo cambiamos la herramienta
+    try {
+      const doc = document.getElementById('preview-iframe').contentDocument;
+      if (doc && doc.getElementById('__ve_bridge__')) {
+        // Bridge ya existe — solo actualizar herramienta
+        sendToFrame({ type: 'SET_TOOL', tool: mode });
+        return;
+      }
+    } catch(_) {}
+    // Si no, reconstruir con bridge
+    document.getElementById('preview-iframe').srcdoc = buildDoc(S.currentHTML);
     setStatus('Modo editar — ' + mode, true);
-  }
-
-  // Si el bridge ya está inyectado en el iframe, solo mandamos el cambio de herramienta
-  if (S.iframeLoaded && mode !== 'play') {
-    sendToFrame({ type: 'SET_TOOL', tool: mode });
   }
 }
 
 function applyCurrentMode() {
-  // Llamado cuando el iframe termina de cargar
   if (S.mode !== 'play') {
-    // Inyectar bridge tras cargar
-    injectBridgeIntoFrame();
     document.getElementById('edit-overlay').classList.add('show');
+    sendToFrame({ type: 'SET_TOOL', tool: S.mode });
   } else {
     document.getElementById('edit-overlay').classList.remove('show');
   }
 }
 
 function injectBridgeIntoFrame() {
-  const fr = document.getElementById('preview-iframe');
-  if (!fr.contentWindow) return;
-  // Inyectamos el bridge ejecutando el script en el contexto del iframe
-  // via postMessage — el iframe tiene que tener allow-same-origin para esto
-  try {
-    const doc = fr.contentDocument;
-    if (!doc) return;
-    // Remover bridge anterior si existe
-    const old = doc.getElementById('__ve_bridge__');
-    if (old) old.remove();
-    // Inyectar nuevo
-    const script = doc.createElement('script');
-    script.id = '__ve_bridge__';
-    script.textContent = getBridgeCode();
-    doc.body.appendChild(script);
-    // Inyectar override CSS
-    let styleEl = doc.getElementById('__ve_style__');
-    if (!styleEl) { styleEl = doc.createElement('style'); styleEl.id = '__ve_style__'; doc.head.appendChild(styleEl); }
-    styleEl.textContent = buildOverrideCSS();
-    // Activar herramienta actual
-    sendToFrame({ type: 'SET_TOOL', tool: S.mode });
-  } catch(e) {
-    // Si no podemos acceder al DOM del iframe (cross-origin), usar postMessage
-    sendToFrame({ type: 'BRIDGE_ON', tool: S.mode });
-  }
+  // No longer needed — bridge is inlined in srcdoc via buildDoc
 }
 
 function sendToFrame(msg) {
@@ -1040,13 +1096,16 @@ function flushCSS() {
   });
   S.files[cssPath].content = css;
   S.files[cssPath].modified = true;
-  updateSW(cssPath, css);
-  // Actualizar style en iframe sin recargarlo
+  // Actualizar style en iframe en tiempo real sin recargar
   try {
     const fr = document.getElementById('preview-iframe');
     if (fr.contentDocument) {
       let s = fr.contentDocument.getElementById('__ve_style__');
-      if (!s) { s = fr.contentDocument.createElement('style'); s.id='__ve_style__'; fr.contentDocument.head.appendChild(s); }
+      if (!s) {
+        s = fr.contentDocument.createElement('style');
+        s.id = '__ve_style__';
+        (fr.contentDocument.head || fr.contentDocument.body).appendChild(s);
+      }
       s.textContent = buildOverrideCSS();
     }
   } catch(_) {}
@@ -1066,72 +1125,6 @@ function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 function copyCSSChanges() {
   const txt = Object.entries(S.overrides).map(([s,p])=>`${s}{\n${Object.entries(p).map(([k,v])=>`  ${k}:${v};`).join('\n')}\n}`).join('\n\n');
   if (txt) navigator.clipboard.writeText(txt).then(()=>setStatus('CSS copiado ✓',true)).catch(()=>{});
-}
-
-// ════════════════════════════════════════════════════
-// BUNDLE INLINE (fallback sin SW)
-// ════════════════════════════════════════════════════
-function buildBundle(htmlPath, withBridge) {
-  const f = S.files[htmlPath]; if (!f?.isText) return '';
-  const dir = htmlPath.split('/').slice(0,-1).join('/');
-  let html = f.content;
-
-  // Inline <link rel="stylesheet">
-  html = html.replace(/<link([^>]+)>/gi, tag => {
-    if (!/rel=["']stylesheet["']/i.test(tag)) return tag;
-    const m = tag.match(/href=["']([^"']+)["']/i); if (!m) return tag;
-    const href = m[1];
-    if (href.startsWith('http')||href.startsWith('//')) return tag;
-    const cf = findFile(resolveRel(dir, href)); if (!cf?.isText) return tag;
-    return `<style>\n${inlineCSS(cf.content, resolveRel(dir,href).split('/').slice(0,-1).join('/'))}\n</style>`;
-  });
-
-  // Inline <script src>
-  html = html.replace(/<script([^>]*)src=["']([^"']+)["']([^>]*)><\/script>/gi, (_,pre,src,post) => {
-    if (src.startsWith('http')||src.startsWith('//')) return _;
-    const jf = findFile(resolveRel(dir, src)); if (!jf?.isText) return _;
-    const attrs = (pre+post).replace(/\btype=["']module["']/gi,'');
-    return `<script${attrs}>\n${jf.content}\n<\/script>`;
-  });
-
-  // Reemplazar assets con blob URLs
-  html = html.replace(/(\b(?:src|href)=["'])([^"'#?]+)(["'])/gi, (_,a,p,b) => {
-    if (p.startsWith('http')||p.startsWith('//')||p.startsWith('data:')) return _;
-    const af = findFile(resolveRel(dir,p));
-    return af?.blobUrl ? a+af.blobUrl+b : _;
-  });
-
-  const css = buildOverrideCSS();
-  const inj = `<style id="__ve_style__">${css}</style>` + (withBridge ? `<script id="__ve_bridge__">${getBridgeCode()}<\/script>` : '');
-  return html.includes('</body>') ? html.replace('</body>',inj+'\n</body>') : html+inj;
-}
-
-function inlineCSS(css, cssDir) {
-  css = css.replace(/@import\s+(?:url\()?["']([^"')]+)["']\)?[^;]*;/gi, (m,p) => {
-    if (p.startsWith('http')||p.startsWith('//')) return m;
-    const cf = findFile(resolveRel(cssDir, p)); if (!cf?.isText) return m;
-    return inlineCSS(cf.content, resolveRel(cssDir,p).split('/').slice(0,-1).join('/'));
-  });
-  css = css.replace(/url\(["']?([^"')#?\s]+)["']?\)/gi, (m,u) => {
-    if (u.startsWith('http')||u.startsWith('data:')||u.startsWith('//')) return m;
-    const af = findFile(resolveRel(cssDir, u));
-    return af?.blobUrl ? `url("${af.blobUrl}")` : m;
-  });
-  return css;
-}
-
-function findFile(path) {
-  if (S.files[path]) return S.files[path];
-  const wp = S.name+'/'+path; if (S.files[wp]) return S.files[wp];
-  const k = Object.keys(S.files).find(k => k===path||k.endsWith('/'+path));
-  return k ? S.files[k] : null;
-}
-
-function resolveRel(base, rel) {
-  const parts = ((base?base+'/':'')+rel).split('/');
-  const out = [];
-  for (const p of parts) { if(p==='..')out.pop(); else if(p&&p!=='.')out.push(p); }
-  return out.join('/');
 }
 
 // ════════════════════════════════════════════════════

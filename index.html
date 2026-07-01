@@ -49,6 +49,38 @@
     #title-panel{max-width:210px;padding:10px 12px;} #title-panel p{display:none;}
     #controls-hint{display:none;} #note-box{max-width:88%;font-size:10.5px;}
   }
+
+  #joystick-base, #jump-btn{ display:none; }
+  @media (pointer: coarse){
+    #joystick-base{
+      display:block; position:fixed; left:22px; bottom:132px; width:112px; height:112px;
+      border-radius:50%; background:rgba(33,28,23,0.55); border:2px solid rgba(237,230,218,0.35);
+      touch-action:none; z-index:30;
+    }
+    #joystick-knob{
+      position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px;
+      border-radius:50%; background:rgba(181,80,45,0.85); border:2px solid rgba(237,230,218,0.6);
+      pointer-events:none;
+    }
+    #jump-btn{
+      display:flex; align-items:center; justify-content:center;
+      position:fixed; right:22px; bottom:150px; width:78px; height:78px; border-radius:50%;
+      background:rgba(181,80,45,0.75); border:2px solid rgba(237,230,218,0.5); color:var(--crema);
+      font-weight:700; font-size:12px; letter-spacing:0.5px; touch-action:none; z-index:30; user-select:none;
+    }
+    #loc-panel{ top:auto; bottom:16px; right:16px; left:auto; width:150px; padding:7px; }
+    .loc-btn{ padding:7px 8px; font-size:11.5px; }
+    #stats{ display:none; }
+    #bottom-panel{
+      bottom:16px; left:22px; right:auto; top:auto; width:auto; padding:0; background:none;
+      border:none; box-shadow:none; justify-content:flex-start;
+    }
+    #controls-hint{ display:none; }
+    #edit-btn{
+      position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+      padding:8px 14px; font-size:11px; z-index:30;
+    }
+  }
 </style>
 </head>
 <body>
@@ -66,6 +98,9 @@
   <div class="loc-btn active" data-loc="llamas">Llamas de la Ribera<small>Datos reales OSM</small></div>
   <div class="loc-btn" data-loc="leon">Ciudad de León<small>Pendiente de datos reales</small></div>
 </div>
+
+<div id="joystick-base"><div id="joystick-knob"></div></div>
+<div id="jump-btn">SALTAR</div>
 
 <div class="panel" id="bottom-panel">
   <div id="controls-hint"><b>WASD</b> mover · <b>Espacio</b> saltar · arrastra para orbitar · rueda zoom</div>
@@ -132,9 +167,10 @@ function extrudeAt(pts, y0, h, color, opts){
   let geo;
   try{ geo = new THREE.ExtrudeGeometry(shape, {depth:Math.max(h,0.05), bevelEnabled:false, curveSegments:2}); }
   catch(e){ return null; }
-  geo.rotateX(Math.PI/2); geo.scale(1,1,-1);
+  geo.rotateX(-Math.PI/2); geo.scale(1,1,-1);
   geo.translate(0,y0,0);
-  const mat = new THREE.MeshStandardMaterial({color, roughness: opts.roughness!=null?opts.roughness:0.9, metalness:0.02});
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({color, roughness: opts.roughness!=null?opts.roughness:0.9, metalness:0.02, side: THREE.DoubleSide});
   const mesh = new THREE.Mesh(geo, mat);
   worldGroup.add(mesh);
   return mesh;
@@ -226,7 +262,7 @@ function addRibbon(points, width, color, yOff, opacity){
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
   geo.setIndex(indices); geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({color, roughness:0.85, transparent:!!opacity, opacity:opacity||1});
+  const mat = new THREE.MeshStandardMaterial({color, roughness:0.85, transparent:!!opacity, opacity:opacity||1, side: THREE.DoubleSide});
   worldGroup.add(new THREE.Mesh(geo, mat));
 }
 
@@ -299,6 +335,53 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive:true});
 canvas.addEventListener('touchend', ()=>{ dragging=false; });
 
+// ---------- MOBILE JOYSTICK ----------
+let joyActive=false, joyDX=0, joyDY=0, joyCenterX=0, joyCenterY=0;
+const joyBase = document.getElementById('joystick-base');
+const joyKnob = document.getElementById('joystick-knob');
+const JOY_R = 40;
+function joyStart(e){
+  joyActive = true;
+  const rect = joyBase.getBoundingClientRect();
+  joyCenterX = rect.left + rect.width/2;
+  joyCenterY = rect.top + rect.height/2;
+  if(joyBase.setPointerCapture && e.pointerId!=null){ try{ joyBase.setPointerCapture(e.pointerId); }catch(err){} }
+  joyMove(e);
+}
+function joyMove(e){
+  if(!joyActive) return;
+  const cx = e.clientX!=null ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : joyCenterX);
+  const cy = e.clientY!=null ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : joyCenterY);
+  let dx = cx - joyCenterX, dy = cy - joyCenterY;
+  const dist = Math.hypot(dx,dy);
+  if(dist > JOY_R){ dx = dx/dist*JOY_R; dy = dy/dist*JOY_R; }
+  joyKnob.style.transform = 'translate('+dx+'px,'+dy+'px)';
+  joyDX = dx/JOY_R; joyDY = dy/JOY_R;
+}
+function joyEnd(){
+  joyActive = false; joyDX = 0; joyDY = 0;
+  joyKnob.style.transform = 'translate(0px,0px)';
+}
+if(window.PointerEvent){
+  joyBase.addEventListener('pointerdown', e=>{ e.preventDefault(); joyStart(e); });
+  joyBase.addEventListener('pointermove', e=>{ e.preventDefault(); joyMove(e); });
+  joyBase.addEventListener('pointerup', joyEnd);
+  joyBase.addEventListener('pointercancel', joyEnd);
+} else {
+  joyBase.addEventListener('touchstart', e=>{ e.preventDefault(); joyStart(e.touches[0]); }, {passive:false});
+  joyBase.addEventListener('touchmove', e=>{ e.preventDefault(); joyMove(e.touches[0]); }, {passive:false});
+  joyBase.addEventListener('touchend', e=>{ e.preventDefault(); joyEnd(); }, {passive:false});
+}
+
+// ---------- MOBILE JUMP BUTTON ----------
+const jumpBtn = document.getElementById('jump-btn');
+function doJump(e){
+  if(e && e.preventDefault) e.preventDefault();
+  if(character.onGround){ character.vel.y = JUMP_SPEED; character.onGround = false; }
+}
+jumpBtn.addEventListener('pointerdown', doJump);
+jumpBtn.addEventListener('touchstart', doJump, {passive:false});
+
 // ---------- EDIT MODE ----------
 let editMode=false;
 document.getElementById('edit-btn').addEventListener('click', ()=>{
@@ -360,10 +443,12 @@ function updateCharacter(dt){
   if(keys['KeyS']||keys['ArrowDown']) iz-=1;
   if(keys['KeyD']||keys['ArrowRight']) ix+=1;
   if(keys['KeyA']||keys['ArrowLeft']) ix-=1;
+  if(joyActive){ ix += joyDX; iz += -joyDY; }
   const move=new THREE.Vector3();
   move.addScaledVector(forward,iz); move.addScaledVector(right,ix);
-  if(move.lengthSq()>0){
-    move.normalize().multiplyScalar(SPEED*dt);
+  if(move.lengthSq()>0.0004){
+    if(move.lengthSq()>1) move.normalize();
+    move.multiplyScalar(SPEED*dt);
     character.pos.x+=move.x; character.pos.z+=move.z;
     const targetAngle=Math.atan2(move.x,move.z);
     charMesh.rotation.y += (targetAngle-charMesh.rotation.y)*Math.min(1,dt*10);

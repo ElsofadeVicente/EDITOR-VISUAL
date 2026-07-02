@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorador offline · Alto Órbigo &amp; León</title>
+<title>Explorador offline · Llamas de la Ribera</title>
 <script src="three.min.js"></script>
 <script src="data/llamas.js"></script>
-<script src="data/leon.js"></script>
 <style>
 
   @font-face{font-family:'FrauncesLocal';src:local('Georgia');}
@@ -26,12 +25,6 @@
   #title-panel .eyebrow{font-family:'Courier New',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
     color:var(--terracota);margin-bottom:6px;}
   #title-panel p{font-size:12px;line-height:1.5;color:#cfc6b8;margin:8px 0 0 0;}
-  #loc-panel{top:16px;right:16px;padding:10px;display:flex;flex-direction:column;gap:6px;width:190px;}
-  .loc-btn{font-size:13px;font-weight:600;color:var(--crema);background:rgba(255,255,255,0.06);
-    border:1px solid rgba(237,230,218,0.18);border-radius:7px;padding:9px 10px;cursor:pointer;text-align:left;}
-  .loc-btn:hover{background:rgba(255,255,255,0.13);}
-  .loc-btn.active{background:var(--terracota);border-color:var(--terracota);}
-  .loc-btn small{display:block;font-weight:400;font-family:'Courier New',monospace;font-size:10px;color:#e3d3c8;margin-top:2px;}
   #bottom-panel{bottom:16px;left:16px;right:16px;padding:10px 16px;display:flex;align-items:center;
     justify-content:space-between;gap:14px;flex-wrap:wrap;}
   #stats{font-family:'Courier New',monospace;font-size:11.5px;color:#cfc6b8;display:flex;gap:14px;flex-wrap:wrap;}
@@ -70,8 +63,6 @@
       background:rgba(181,80,45,0.75); border:2px solid rgba(237,230,218,0.5); color:var(--crema);
       font-weight:700; font-size:12px; letter-spacing:0.5px; touch-action:none; z-index:30; user-select:none;
     }
-    #loc-panel{ top:auto; bottom:16px; right:16px; left:auto; width:150px; padding:7px; }
-    .loc-btn{ padding:7px 8px; font-size:11.5px; }
     #stats{ display:none; }
     #bottom-panel{
       bottom:16px; left:22px; right:auto; top:auto; width:auto; padding:0; background:none;
@@ -94,12 +85,7 @@
 <div class="panel" id="title-panel">
   <div class="eyebrow">Provincia de León · paquete offline</div>
   <h1 id="place-name">Llamas de la Ribera</h1>
-  <p id="place-desc">Calles y río: datos reales de OpenStreetMap. Locales con nombre: modelados a partir de fotos reales.</p>
-</div>
-
-<div class="panel" id="loc-panel">
-  <div class="loc-btn active" data-loc="llamas">Llamas de la Ribera<small>Datos reales OSM</small></div>
-  <div class="loc-btn" data-loc="leon">Ciudad de León<small>Pendiente de datos reales</small></div>
+  <p id="place-desc">Calles y río: datos reales de OpenStreetMap. Edificios: contornos y alturas reales del Catastro.</p>
 </div>
 
 <div id="joystick-base"><div id="joystick-knob"></div></div>
@@ -181,6 +167,30 @@ function buildProcTexture(kind){
 }
 function getWallTexture(){ if(!_wallTex) _wallTex = buildProcTexture('wall'); return _wallTex; }
 function getRoofTexture(){ if(!_roofTex) _roofTex = buildProcTexture('roof'); return _roofTex; }
+let _groundTex=null;
+function getGroundTexture(){
+  if(_groundTex) return _groundTex;
+  const size=256;
+  const cnv=document.createElement('canvas'); cnv.width=size; cnv.height=size;
+  const ctx=cnv.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,size,size);
+  for(let i=0;i<9000;i++){
+    const shade = 0.75+Math.random()*0.3;
+    ctx.fillStyle = `rgba(${Math.floor(255*shade)},${Math.floor(255*shade)},${Math.floor(255*shade)},0.5)`;
+    const x=Math.random()*size, y=Math.random()*size;
+    ctx.fillRect(x,y, 1+Math.random()*2, 1+Math.random()*2);
+  }
+  for(let i=0;i<220;i++){
+    ctx.strokeStyle='rgba(0,0,0,0.05)';
+    ctx.beginPath();
+    const x=Math.random()*size, y=Math.random()*size, a=Math.random()*Math.PI*2, len=3+Math.random()*6;
+    ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(a)*len, y+Math.sin(a)*len); ctx.stroke();
+  }
+  _groundTex = new THREE.CanvasTexture(cnv);
+  _groundTex.wrapS = _groundTex.wrapT = THREE.RepeatWrapping;
+  _groundTex.repeat.set(90,90);
+  return _groundTex;
+}
 const ROOF_COLORS = [0xA5432A,0x8B3A22,0xB1502E,0x9C4726];
 function pickRoofColor(){ return ROOF_COLORS[Math.floor(Math.random()*ROOF_COLORS.length)]; }
 
@@ -216,16 +226,17 @@ function setupGround(loc){
     }
     geo.computeVertexNormals();
   }
-  groundMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:loc.ground, roughness:1}));
+  groundMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:loc.ground, roughness:1, map:getGroundTexture()}));
   scene.add(groundMesh);
 }
 
 // ---------- WORLD ----------
 let worldGroup = new THREE.Group(); scene.add(worldGroup);
 let buildings = []; // {mesh,minX,maxX,minZ,maxZ,h}
+let buildingMeshes = []; // cached mesh list, kept in sync with `buildings` (avoids rebuilding every frame)
 let addedCount = 0;
 
-function clearWorld(){ worldGroup.clear(); buildings=[]; addedCount=0; updateStats(0,0); }
+function clearWorld(){ worldGroup.clear(); buildings=[]; buildingMeshes=[]; addedCount=0; updateStats(0,0); }
 function updateStats(b,r){
   document.getElementById('stat-buildings').textContent=b;
   document.getElementById('stat-roads').textContent=r;
@@ -276,11 +287,27 @@ function addHipRoof(pts, y0, color){
   worldGroup.add(mesh);
 }
 
+function addFlatRoof(pts, y0, color){
+  extrudeAt(pts, y0, 0.35, color, {roughness:0.7, map:getRoofTexture()});
+}
+
+// Real Catastro footprints are often irregular (L-shaped, courtyards, many vertices).
+// A cone stretched over their bounding box looks wrong, so only simple ~rectangular
+// footprints get a hip roof; anything more complex gets a flat cap instead.
+function addRoofFor(pts, y0, color){
+  if(pts.length <= 5){
+    addHipRoof(pts, y0, color);
+  } else {
+    addFlatRoof(pts, y0, color);
+  }
+}
+
 function registerCollider(mesh, pts, h, uid){
   let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
   pts.forEach(p=>{minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minZ=Math.min(minZ,p[1]);maxZ=Math.max(maxZ,p[1]);});
   mesh.userData.uid = uid;
   buildings.push({mesh,minX,maxX,minZ,maxZ,h,uid});
+  buildingMeshes.push(mesh);
 }
 
 function centroid(pts){
@@ -288,11 +315,10 @@ function centroid(pts){
 }
 
 function addSimpleBuilding(pts, h, color, uid){
-  const [cx,cz] = centroid(pts);
-  const baseY = getElevation(cx,cz);
+  const baseY = Math.min(...pts.map(p=>getElevation(p[0],p[1])));
   const mesh = extrudeAt(pts, baseY, h, color, {map:getWallTexture()});
   if(mesh) registerCollider(mesh, pts, baseY+h, uid);
-  addHipRoof(pts, baseY+h, pickRoofColor());
+  addRoofFor(pts, baseY+h, pickRoofColor());
 }
 
 // landmark part renderers
@@ -349,8 +375,8 @@ function addLandmarkPart(part){
 }
 
 function addLandmark(lm){
-  const [cx,cz] = centroid(lm.parts[0].pts || [[0,0]]);
-  const baseY = getElevation(cx,cz);
+  const pts0 = lm.parts[0].pts || [[0,0]];
+  const baseY = Math.min(...pts0.map(p=>getElevation(p[0],p[1])));
   lm.parts.forEach(part=>{
     addLandmarkPart(Object.assign({}, part, {y0:(part.y0||0)+baseY}));
   });
@@ -387,14 +413,28 @@ function addTree(x,z,scale){
   worldGroup.add(trunk,leaves);
 }
 
+// chopo/alamo: arbol alto y estrecho, tipico de las choperas del Orbigo junto al rio
+function addPoplar(x,z,scale){
+  const baseY = getElevation(x,z);
+  const h = 7*scale;
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.13*scale,0.2*scale,h*0.5,6),
+    new THREE.MeshStandardMaterial({color:0x5f5240, roughness:1}));
+  trunk.position.set(x,baseY+h*0.25,z);
+  const leafColor = Math.random()>0.5?0x4a6b38:0x557a3f;
+  const crown=new THREE.Mesh(new THREE.ConeGeometry(0.85*scale,h*0.75,7),
+    new THREE.MeshStandardMaterial({color:leafColor, roughness:1}));
+  crown.position.set(x,baseY+h*0.5+h*0.375*0.6,z);
+  worldGroup.add(trunk,crown);
+}
+
 function scatterTrees(data){
   (data.river_segments||[]).forEach(r=>{
     for(let i=0;i<r.pts.length;i++){
-      if(Math.random()<0.75){
+      if(Math.random()<0.8){
         const p=r.pts[i];
         const side = Math.random()<0.5?-1:1;
         const along = (Math.random()-0.5)*4;
-        addTree(p[0]+along, p[1]+side*(9+Math.random()*7), 0.8+Math.random()*0.6);
+        addPoplar(p[0]+along, p[1]+side*(8+Math.random()*8), 0.8+Math.random()*0.5);
       }
     }
   });
@@ -419,6 +459,18 @@ function saveEditState(){
   try{ localStorage.setItem('explorador_edits_'+currentLocKey, JSON.stringify(editState)); }catch(e){}
 }
 
+function roadColor(type){
+  switch(type){
+    case 'residential': case 'living_street': case 'unclassified': return 0x716a5c;
+    case 'tertiary': case 'secondary': case 'primary': case 'trunk': case 'motorway': return 0x5c5a54;
+    case 'track': return 0x9c7f52;
+    case 'path': return 0xa88f66;
+    case 'footway': case 'pedestrian': case 'steps': return 0xb9ab8e;
+    case 'cycleway': return 0x8a6f4e;
+    default: return 0x8f8570;
+  }
+}
+
 function loadWorld(key){
   currentLocKey = key;
   const data = window.WORLD_DATA[key];
@@ -426,9 +478,7 @@ function loadWorld(key){
   const removedSet = new Set(editState.removed);
 
   document.getElementById('place-name').textContent = data.name;
-  document.getElementById('place-desc').textContent = data.placeholder
-    ? 'Aún no tengo datos reales de esta zona.'
-    : 'Calles y río: datos reales de OpenStreetMap. Locales con nombre: modelados a partir de fotos reales.';
+  document.getElementById('place-desc').textContent = 'Calles y río: datos reales de OpenStreetMap. Edificios: contornos y alturas reales del Catastro.';
   const noteBox = document.getElementById('note-box');
   if(data.note){ noteBox.textContent = data.note; noteBox.style.display='block'; }
   else noteBox.style.display='none';
@@ -442,18 +492,7 @@ function loadWorld(key){
 
   let bCount=0, rCount=0;
 
-  function roadColor(type){
-  switch(type){
-    case 'residential': case 'living_street': case 'unclassified': return 0x716a5c; // asfalto pueblo
-    case 'tertiary': case 'secondary': case 'primary': case 'trunk': case 'motorway': return 0x5c5a54; // carretera asfaltada
-    case 'track': return 0x9c7f52; // camino de tierra
-    case 'path': return 0xa88f66; // sendero
-    case 'footway': case 'pedestrian': case 'steps': return 0xb9ab8e; // peatonal/losa clara
-    case 'cycleway': return 0x8a6f4e;
-    default: return 0x8f8570;
-  }
-}
-(data.roads||[]).forEach(r=>{ addRibbon(r.pts, r.w, roadColor(r.type), 0.05); rCount++; });
+  (data.roads||[]).forEach(r=>{ addRibbon(r.pts, r.w, roadColor(r.type), 0.05); rCount++; });
   (data.river_segments||[]).forEach(r=>{ addRibbon(r.pts, 12, 0x3e6e8e, 0.04, 0.9); });
   (data.real_buildings||[]).forEach((b,i)=>{
     const uid='real_'+i;
@@ -479,16 +518,20 @@ const GRAVITY=22, JUMP_SPEED=8, SPEED=9, RADIUS=0.45;
 const character = { pos:new THREE.Vector3(0,0,0), jumpOffset:0, jumpVel:0, onGround:true };
 function buildCharacter(){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.4,1.0,10), new THREE.MeshStandardMaterial({color:0xb5502d}));
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.38,1.0,10), new THREE.MeshStandardMaterial({color:0xb5502d}));
   body.position.y=1.1;
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,10), new THREE.MeshStandardMaterial({color:0xe8c9a3}));
   head.position.y=1.8;
   const legMat = new THREE.MeshStandardMaterial({color:0x3a2f28});
   const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.75,6), legMat);
-  legL.position.set(-0.15,0.38,0); legL.geometry.translate(0,-0.375,0); legL.position.y=0.75;
+  legL.geometry.translate(0,-0.375,0); legL.position.set(-0.15,0.75,0);
   const legR = legL.clone(); legR.position.x=0.15;
-  g.add(body,head,legL,legR);
-  g.userData.legL=legL; g.userData.legR=legR;
+  const armMat = new THREE.MeshStandardMaterial({color:0xb5502d});
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.65,6), armMat);
+  armL.geometry.translate(0,-0.325,0); armL.position.set(-0.42,1.55,0);
+  const armR = armL.clone(); armR.position.x=0.42;
+  g.add(body,head,legL,legR,armL,armR);
+  g.userData.legL=legL; g.userData.legR=legR; g.userData.armL=armL; g.userData.armR=armR;
   return g;
 }
 const charMesh = buildCharacter(); scene.add(charMesh);
@@ -583,14 +626,15 @@ function handleClick(clientX, clientY){
   if(!editMode) return;
   const ndc=new THREE.Vector2((clientX/window.innerWidth)*2-1, -(clientY/window.innerHeight)*2+1);
   raycaster.setFromCamera(ndc, camera);
-  const meshes = buildings.map(b=>b.mesh);
-  const hits = raycaster.intersectObjects(meshes,false);
+  const hits = raycaster.intersectObjects(buildingMeshes,false);
   if(hits.length>0){
     const mesh=hits[0].object;
     const idx=buildings.findIndex(b=>b.mesh===mesh);
     if(idx>=0){
       const uid = buildings[idx].uid;
       worldGroup.remove(mesh); buildings.splice(idx,1);
+      const meshIdx = buildingMeshes.indexOf(mesh);
+      if(meshIdx>=0) buildingMeshes.splice(meshIdx,1);
       if(uid && uid.indexOf('user_')===0){
         const userId = uid.slice(5);
         editState.added = (editState.added||[]).filter(a=>String(a.id)!==userId);
@@ -622,14 +666,6 @@ document.getElementById('reset-btn').addEventListener('click', ()=>{
   if(!confirm('¿Borrar todos los cambios guardados en '+window.WORLD_DATA[currentLocKey].name+'?')) return;
   localStorage.removeItem('explorador_edits_'+currentLocKey);
   loadWorld(currentLocKey);
-});
-
-document.querySelectorAll('.loc-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.loc-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    loadWorld(btn.dataset.loc);
-  });
 });
 
 // ---------- PHYSICS ----------
@@ -672,6 +708,8 @@ function updateCharacter(dt){
   if(charMesh.userData.legL){
     charMesh.userData.legL.rotation.x = Math.sin(walkPhase)*0.55;
     charMesh.userData.legR.rotation.x = -Math.sin(walkPhase)*0.55;
+    charMesh.userData.armL.rotation.x = -Math.sin(walkPhase)*0.5;
+    charMesh.userData.armR.rotation.x = Math.sin(walkPhase)*0.5;
   }
   if(keys['Space'] && character.onGround){ character.jumpVel=JUMP_SPEED; character.onGround=false; }
   character.jumpVel -= GRAVITY*dt;
@@ -702,7 +740,7 @@ function updateCamera(){
   raycaster.set(target, dir);
   raycaster.far = camDist;
   raycaster.near = 0.1;
-  const camHits = raycaster.intersectObjects(buildings.map(b=>b.mesh), false);
+  const camHits = raycaster.intersectObjects(buildingMeshes, false);
   if(camHits.length>0){ dist = Math.max(2.2, camHits[0].distance*0.9); }
   const cx=target.x+dist*dirX;
   const cz=target.z+dist*dirZ;

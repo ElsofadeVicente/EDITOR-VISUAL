@@ -184,11 +184,38 @@ function getRoofTexture(){ if(!_roofTex) _roofTex = buildProcTexture('roof'); re
 const ROOF_COLORS = [0xA5432A,0x8B3A22,0xB1502E,0x9C4726];
 function pickRoofColor(){ return ROOF_COLORS[Math.floor(Math.random()*ROOF_COLORS.length)]; }
 
+let elevGrid = null;
+function setElevationGrid(g){ elevGrid = g; }
+function getElevation(x,z){
+  if(!elevGrid) return 0;
+  const g = elevGrid;
+  const fx = (x-g.x0)/(g.x1-g.x0)*(g.nx-1);
+  const fz = (z-g.z0)/(g.z1-g.z0)*(g.nz-1);
+  const cx = Math.max(0,Math.min(g.nx-1, fx));
+  const cz = Math.max(0,Math.min(g.nz-1, fz));
+  const x0 = Math.floor(cx), x1 = Math.min(g.nx-1, x0+1);
+  const z0 = Math.floor(cz), z1 = Math.min(g.nz-1, z0+1);
+  const tx = cx-x0, tz = cz-z0;
+  const v00 = g.values[z0][x0], v10 = g.values[z0][x1];
+  const v01 = g.values[z1][x0], v11 = g.values[z1][x1];
+  const a = v00*(1-tx)+v10*tx;
+  const b = v01*(1-tx)+v11*tx;
+  return a*(1-tz)+b*tz;
+}
+
 let groundMesh;
 function setupGround(loc){
   if(groundMesh) scene.remove(groundMesh);
-  const size = 1400;
-  const geo = new THREE.PlaneGeometry(size,size,1,1); geo.rotateX(-Math.PI/2);
+  const size = 1400, seg = elevGrid?70:1;
+  const geo = new THREE.PlaneGeometry(size,size,seg,seg); geo.rotateX(-Math.PI/2);
+  if(elevGrid){
+    const pos = geo.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      const x=pos.getX(i), z=pos.getZ(i);
+      pos.setY(i, getElevation(x,z));
+    }
+    geo.computeVertexNormals();
+  }
   groundMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:loc.ground, roughness:1}));
   scene.add(groundMesh);
 }
@@ -261,9 +288,11 @@ function centroid(pts){
 }
 
 function addSimpleBuilding(pts, h, color, uid){
-  const mesh = extrudeAt(pts, 0, h, color, {map:getWallTexture()});
-  if(mesh) registerCollider(mesh, pts, h, uid);
-  addHipRoof(pts, h, pickRoofColor());
+  const [cx,cz] = centroid(pts);
+  const baseY = getElevation(cx,cz);
+  const mesh = extrudeAt(pts, baseY, h, color, {map:getWallTexture()});
+  if(mesh) registerCollider(mesh, pts, baseY+h, uid);
+  addHipRoof(pts, baseY+h, pickRoofColor());
 }
 
 // landmark part renderers
@@ -320,7 +349,11 @@ function addLandmarkPart(part){
 }
 
 function addLandmark(lm){
-  lm.parts.forEach(addLandmarkPart);
+  const [cx,cz] = centroid(lm.parts[0].pts || [[0,0]]);
+  const baseY = getElevation(cx,cz);
+  lm.parts.forEach(part=>{
+    addLandmarkPart(Object.assign({}, part, {y0:(part.y0||0)+baseY}));
+  });
 }
 
 function addRibbon(points, width, color, yOff, opacity){
@@ -331,7 +364,8 @@ function addRibbon(points, width, color, yOff, opacity){
     let dx=p2[0]-p1[0], dz=p2[1]-p1[1];
     const len=Math.hypot(dx,dz)||1; dx/=len; dz/=len;
     const px=-dz*width/2, pz=dx*width/2;
-    positions.push(p1[0]+px,yOff,p1[1]+pz, p1[0]-px,yOff,p1[1]-pz, p2[0]+px,yOff,p2[1]+pz, p2[0]-px,yOff,p2[1]-pz);
+    const y1=getElevation(p1[0],p1[1])+yOff, y2=getElevation(p2[0],p2[1])+yOff;
+    positions.push(p1[0]+px,y1,p1[1]+pz, p1[0]-px,y1,p1[1]-pz, p2[0]+px,y2,p2[1]+pz, p2[0]-px,y2,p2[1]-pz);
     indices.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2); vi+=4;
   }
   const geo = new THREE.BufferGeometry();
@@ -342,13 +376,14 @@ function addRibbon(points, width, color, yOff, opacity){
 }
 
 function addTree(x,z,scale){
+  const baseY = getElevation(x,z);
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.15*scale,0.22*scale,1.6*scale,6),
     new THREE.MeshStandardMaterial({color:0x6b4a2f, roughness:1}));
-  trunk.position.set(x,0.8*scale,z);
+  trunk.position.set(x,baseY+0.8*scale,z);
   const leafColor = Math.random()>0.5?0x3f5c2e:0x4d6b34;
   const leaves=new THREE.Mesh(new THREE.SphereGeometry(1.3*scale,7,6),
     new THREE.MeshStandardMaterial({color:leafColor, roughness:1}));
-  leaves.position.set(x,2.1*scale,z);
+  leaves.position.set(x,baseY+2.1*scale,z);
   worldGroup.add(trunk,leaves);
 }
 
@@ -400,13 +435,25 @@ function loadWorld(key){
 
   scene.background = new THREE.Color(data.sky);
   scene.fog = new THREE.Fog(data.fog, 220, 900);
+  setElevationGrid(data.elevation || null);
   setupGround(data);
   clearWorld();
   resetCharacter(data.spawn||[0,0]);
 
   let bCount=0, rCount=0;
 
-  (data.roads||[]).forEach(r=>{ addRibbon(r.pts, r.w, 0x9c8e6f, 0.05); rCount++; });
+  function roadColor(type){
+  switch(type){
+    case 'residential': case 'living_street': case 'unclassified': return 0x716a5c; // asfalto pueblo
+    case 'tertiary': case 'secondary': case 'primary': case 'trunk': case 'motorway': return 0x5c5a54; // carretera asfaltada
+    case 'track': return 0x9c7f52; // camino de tierra
+    case 'path': return 0xa88f66; // sendero
+    case 'footway': case 'pedestrian': case 'steps': return 0xb9ab8e; // peatonal/losa clara
+    case 'cycleway': return 0x8a6f4e;
+    default: return 0x8f8570;
+  }
+}
+(data.roads||[]).forEach(r=>{ addRibbon(r.pts, r.w, roadColor(r.type), 0.05); rCount++; });
   (data.river_segments||[]).forEach(r=>{ addRibbon(r.pts, 12, 0x3e6e8e, 0.04, 0.9); });
   (data.real_buildings||[]).forEach((b,i)=>{
     const uid='real_'+i;
@@ -429,7 +476,7 @@ function loadWorld(key){
 
 // ---------- CHARACTER ----------
 const GRAVITY=22, JUMP_SPEED=8, SPEED=9, RADIUS=0.45;
-const character = { pos:new THREE.Vector3(0,0,0), vel:new THREE.Vector3(0,0,0), onGround:true };
+const character = { pos:new THREE.Vector3(0,0,0), jumpOffset:0, jumpVel:0, onGround:true };
 function buildCharacter(){
   const g=new THREE.Group();
   const body=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.4,1.0,10), new THREE.MeshStandardMaterial({color:0xb5502d}));
@@ -446,7 +493,8 @@ function buildCharacter(){
 }
 const charMesh = buildCharacter(); scene.add(charMesh);
 function resetCharacter(spawn){
-  character.pos.set(spawn[0],0,spawn[1]); character.vel.set(0,0,0); character.onGround=true;
+  character.pos.set(spawn[0],0,spawn[1]);
+  character.jumpOffset=0; character.jumpVel=0; character.onGround=true;
 }
 
 // ---------- INPUT ----------
@@ -517,7 +565,7 @@ if(window.PointerEvent){
 const jumpBtn = document.getElementById('jump-btn');
 function doJump(e){
   if(e && e.preventDefault) e.preventDefault();
-  if(character.onGround){ character.vel.y = JUMP_SPEED; character.onGround = false; }
+  if(character.onGround){ character.jumpVel = JUMP_SPEED; character.onGround = false; }
 }
 jumpBtn.addEventListener('pointerdown', doJump);
 jumpBtn.addEventListener('touchstart', doJump, {passive:false});
@@ -587,7 +635,8 @@ document.querySelectorAll('.loc-btn').forEach(btn=>{
 // ---------- PHYSICS ----------
 function resolveCollisions(pos){
   for(const b of buildings){
-    if(pos.y > b.h+0.05) continue;
+    const groundY = getElevation(pos.x,pos.z);
+    if(groundY + character.jumpOffset > b.h+0.05) continue;
     const cx=Math.max(b.minX,Math.min(pos.x,b.maxX));
     const cz=Math.max(b.minZ,Math.min(pos.z,b.maxZ));
     const dx=pos.x-cx, dz=pos.z-cz;
@@ -624,11 +673,13 @@ function updateCharacter(dt){
     charMesh.userData.legL.rotation.x = Math.sin(walkPhase)*0.55;
     charMesh.userData.legR.rotation.x = -Math.sin(walkPhase)*0.55;
   }
-  if(keys['Space'] && character.onGround){ character.vel.y=JUMP_SPEED; character.onGround=false; }
-  character.vel.y -= GRAVITY*dt;
-  character.pos.y += character.vel.y*dt;
-  if(character.pos.y<=0){ character.pos.y=0; character.vel.y=0; character.onGround=true; }
+  if(keys['Space'] && character.onGround){ character.jumpVel=JUMP_SPEED; character.onGround=false; }
+  character.jumpVel -= GRAVITY*dt;
+  character.jumpOffset += character.jumpVel*dt;
+  if(character.jumpOffset<=0){ character.jumpOffset=0; character.jumpVel=0; character.onGround=true; }
   resolveCollisions(character.pos);
+  const groundY = getElevation(character.pos.x, character.pos.z);
+  character.pos.y = groundY + character.jumpOffset;
   charMesh.position.set(character.pos.x, character.pos.y + Math.abs(Math.sin(walkPhase))*0.04, character.pos.z);
 
   // proximity label for landmarks

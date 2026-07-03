@@ -1,5 +1,5 @@
 EXPLORADOR ALTO ORBIGO / LEON - PAQUETE OFFLINE (v2)
-====================================================
+===================================================
 
 Como abrirlo:
 - Descomprime la carpeta entera.
